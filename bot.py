@@ -15,7 +15,9 @@ GOOGLE_CREDENTIALS_JSON = os.getenv("GOOGLE_CREDENTIALS")
 
 # Авторизація через JSON з Environment Variables
 creds_dict = json.loads(GOOGLE_CREDENTIALS_JSON)
-creds = service_account.Credentials.from_service_account_info(creds_dict, scopes=["https://www.googleapis.com/auth/spreadsheets"])
+creds = service_account.Credentials.from_service_account_info(
+    creds_dict, scopes=["https://www.googleapis.com/auth/spreadsheets"]
+)
 client = gspread.authorize(creds)
 sheet = client.open_by_key(MAIN_SHEET_ID)
 users_ws = sheet.worksheet("Users")
@@ -31,10 +33,12 @@ def get_user_data(user_id):
             return user
     return None
 
+
 def normalize_url(url):
     if not url:
         return None
     return url.replace("/edit", "/viewer")
+
 
 # ---------- КОМАНДА /start ----------
 @bot.message_handler(commands=["start"])
@@ -61,6 +65,7 @@ def start(message):
 
     bot.send_message(message.chat.id, "Вибери розділ 👇", reply_markup=markup)
 
+
 # ---------- ОБРОБКА КНОПОК ----------
 @bot.message_handler(func=lambda message: message.text in [
     "🗺 Карта територій", "📋 План", "🎯 Фокуси",
@@ -84,6 +89,7 @@ def handle_buttons(message):
 
     clean_url = normalize_url(url)
     bot.reply_to(message, f"🔗 {column}:\n{clean_url}")
+
 
 # ---------- ЗАПУСК ----------
 if name == "main":
