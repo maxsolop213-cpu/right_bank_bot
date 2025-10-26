@@ -94,6 +94,6 @@ def handle_buttons(message):
 
 
 # ---------- ЗАПУСК ----------
-if name == "main":
+if _name_ == "_main_":
     print("✅ Бот запущений")
     bot.polling(none_stop=True)
