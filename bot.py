@@ -21,7 +21,7 @@ sheet = client.open_by_key(MAIN_SHEET_ID)
 users_ws = sheet.worksheet("Users")
 
 bot = telebot.TeleBot(BOT_TOKEN)
-app = Flask(name)
+app = Flask(__name__)
 
 # ---------- ГОЛОВНЕ МЕНЮ ----------
 main_menu_buttons = ["📍 Територія", "🧰 Сервіси", "🎯 Фокуси"]
