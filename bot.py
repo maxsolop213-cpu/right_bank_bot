@@ -1,4 +1,3 @@
-Максим Солоп, [26.10.2025 23:18]
 import telebot
 import gspread
 from google.oauth2.service_account import Credentials
@@ -65,7 +64,6 @@ def start(message):
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add("🌍 Територія", "🧰 Сервіси", "🎯 Фокуси")
 
-    # Випадкове мотиваційне повідомлення
     import random
     bot.send_message(message.chat.id, random.choice(MOTIVATION))
     bot.send_message(message.chat.id, "Вибери розділ 👇", reply_markup=markup)
@@ -75,7 +73,7 @@ def start(message):
 @bot.message_handler(func=lambda message: message.text == "🌍 Територія")
 def territory_menu(message):
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add("📋 План", "📊 Індекси", "🗓 Візити", "⬅️ Назад")
+    markup.add("📋 План", "📊 Індекси", "🗓 Візити", "✅ Задачі", "⬅️ Назад")
     bot.send_message(message.chat.id, "📍 Обери напрям по території:", reply_markup=markup)
 
 
@@ -123,7 +121,6 @@ def handle_buttons(message):
         bot.send_message(message.chat.id, f"⛔️ Для '{column}' ще немає посилання.")
         return
 
-Максим Солоп, [26.10.2025 23:18]
 clean_url = normalize_url(url)
     bot.send_message(message.chat.id, f"🔗 {column}:\n{clean_url}")
 
