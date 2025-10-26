@@ -1,19 +1,26 @@
+
 import telebot
 import gspread
 from google.oauth2.service_account import Credentials
 from dotenv import load_dotenv
 import os
+import json
 
 # ---------- Налаштування ----------
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+MAIN_SHEET_ID = os.getenv("SPREADSHEET_ID")
+
+# Беремо ключ із Render (Environment Variables)
+GOOGLE_CREDENTIALS = os.getenv("GOOGLE_CREDENTIALS")
 
 scope = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
-creds = Credentials.from_service_account_file("service_account.json", scopes=scope)
+
+# Авторизація через JSON з середовища
+creds = Credentials.from_service_account_info(json.loads(GOOGLE_CREDENTIALS), scopes=scope)
 client = gspread.authorize(creds)
 
-MAIN_SHEET_ID = os.getenv("SPREADSHEET_ID")
 sheet = client.open_by_key(MAIN_SHEET_ID)
 users_ws = sheet.worksheet("Users")
 
@@ -21,55 +28,12 @@ bot = telebot.TeleBot(BOT_TOKEN)
 
 # ---------- ФУНКЦІЇ ----------
 def get_user_data(user_id):
+    """Отримати дані користувача з таблиці Users"""
     users = users_ws.get_all_records()
     for user in users:
         if str(user_id) == str(user["Telegram_ID"]):
             return user
     return None
-
-
-def normalize_url(url):
-    if not url:
-        return None
-    return url.replace("/edit", "/viewer")
-
-# ---------- СТАН МЕНЮ ----------
-user_states = {}
-
-# ---------- ГОЛОВНЕ МЕНЮ ----------
-def main_menu(chat_id):
-    markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.row("🗺 Карта територій")
-    markup.row("📋 Територія", "⚙️ Сервіси")
-    markup.row("🎯 Фокуси")
-    bot.send_message(chat_id, "📍 Обери розділ:", reply_markup=markup)
-    user_states[chat_id] = "main"
-
-
-# ---------- ПІДМЕНЮ ----------
-def territory_menu(chat_id):
-    markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.row("📋 План", "📋 Візити", "📈 Індекси")
-    markup.row("⬅️ Назад")
-    bot.send_message(chat_id, "📋 Територія:", reply_markup=markup)
-    user_states[chat_id] = "territory"
-
-
-def services_menu(chat_id):
-    markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.row("🛠 Сервіс-C", "⚙️ Сервіс-Х")
-    markup.row("🎁 Промо", "💰 МФ")
-    markup.row("⬅️ Назад")
-    bot.send_message(chat_id, "⚙️ Сервіси:", reply_markup=markup)
-    user_states[chat_id] = "services"
-
-
-def focus_menu(chat_id):
-    markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.row("🎯 Фокуси", "🌱 Розвиток територій")
-    markup.row("⬅️ Назад")
-    bot.send_message(chat_id, "🎯 Фокуси:", reply_markup=markup)
-    user_states[chat_id] = "focus"
 
 
 # ---------- КОМАНДА /start ----------
@@ -82,17 +46,49 @@ def start(message):
         bot.reply_to(message, "⚠️ Тебе немає в списку користувачів. Звернись до керівника.")
         return
 
-    name = user["Ім’я"]
     role = user["Роль"]
-
+    name = user["Ім’я"]
     bot.reply_to(message, f"👋 Привіт, {name}! Твоя роль: {role}")
-    main_menu(message.chat.id)
+
+    markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+    buttons = [
+        "🗺 Карта територій", 
+        "📋 Територія", 
+        "🛠 Сервіси", 
+        "🎯 Фокуси"
+    ]
+    for b in buttons:
+        markup.add(b)
+
+    bot.send_message(message.chat.id, "Вибери розділ 👇", reply_markup=markup)
 
 
-# ---------- ОБРОБКА КНОПОК ----------
-@bot.message_handler(func=lambda m: True)
+# ---------- ОБРОБКА ПІДМЕНЮ ----------
+@bot.message_handler(func=lambda m: m.text in ["📋 Територія", "🛠 Сервіси", "🎯 Фокуси"])
+def submenu(message):
+    markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+
+    if message.text == "📋 Територія":
+        markup.add("📋 План", "📋 Візити", "📋 Індекси", "⬅️ Назад")
+
+    elif message.text == "🛠 Сервіси":
+        markup.add("🛠 Сервіс-C", "⚙️ Сервіс-Х", "🎁 Промо", "💰 МФ", "⬅️ Назад")
+
+    elif message.text == "🎯 Фокуси":
+        markup.add("🎯 Фокуси", "🌱 Розвиток територій", "⬅️ Назад")
+
+    bot.send_message(message.chat.id, "🔸 Вибери розділ:", reply_markup=markup)
+
+
+# ---------- ПОВЕРНЕННЯ НАЗАД ----------
+@bot.message_handler(func=lambda m: m.text == "⬅️ Назад")
+def go_back(message):
+    start(message)
+
+
+# ---------- ОБРОБКА ВСІХ ІНШИХ КНОПОК ----------
+@bot.message_handler(func=lambda message: True)
 def handle_buttons(message):
-    chat_id = message.chat.id
     user_id = message.from_user.id
     user = get_user_data(user_id)
 
@@ -100,39 +96,24 @@ def handle_buttons(message):
         bot.reply_to(message, "⚠️ Тебе немає в базі.")
         return
 
-    text = message.text.strip()
+    text = message.text.strip().lower()
 
-    # --- Навігація ---
-    if text == "⬅️ Назад":
-        main_menu(chat_id)
-        return
+    matched_column = None
+    for col_name in user.keys():
+        if text.replace("📋", "").replace("🎯", "").replace("✅", "").replace("🛠", "").replace("⚙️", "").strip() in col_name.lower():
+            matched_column = col_name
+            break
 
-    # --- Перехід у підменю ---
-    if text == "📋 Територія":
-        territory_menu(chat_id)
-        return
-    if text == "⚙️ Сервіси":
-        services_menu(chat_id)
-        return
-    if text == "🎯 Фокуси":
-        focus_menu(chat_id)
-        return
-
-    # --- Головне меню: проста кнопка ---
-    if text == "🗺 Карта територій":
-        link = user.get("🗺 Карта територій")
-        if not link:
-            bot.send_message(chat_id, "⛔️ Для 'Карта територій' ще немає посилання.")
+    if matched_column:
+        link = str(user[matched_column]).strip()
+        if link.startswith("http"):
+            bot.send_message(message.chat.id, f"🔗 {matched_column}:\n{link}")
+        elif link == "" or link.lower() == "none":
+            bot.send_message(message.chat.id, f"⛔️ Для '{matched_column}' ще немає посилання.")
         else:
-            bot.send_message(chat_id, f"🗺 Карта територій:\n{normalize_url(link)}")
-        return
-
-    # --- Усі інші кнопки (підменю) ---
-    link = user.get(text)
-    if link:
-        bot.send_message(chat_id, f"🔗 {text}:\n{normalize_url(link)}")
+            bot.send_message(message.chat.id, f"⚠️ Для '{matched_column}' записано не посилання.")
     else:
-        bot.send_message(chat_id, f"⛔️ Для '{text}' ще немає посилання.")
+        bot.send_message(message.chat.id, "❓ Невідома команда, скористайся кнопками.")
 
 
 # ---------- ЗАПУСК БОТА ----------
