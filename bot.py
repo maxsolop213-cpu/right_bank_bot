@@ -1,49 +1,52 @@
+Максим Солоп, [26.10.2025 23:18]
 import telebot
 import gspread
 from google.oauth2.service_account import Credentials
 from dotenv import load_dotenv
 import os
-import random
+import json
+from flask import Flask, request
 
 # ---------- Налаштування ----------
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-
-scope = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
-creds = Credentials.from_service_account_file("service_account.json", scopes=scope)
-client = gspread.authorize(creds)
-
 MAIN_SHEET_ID = os.getenv("SPREADSHEET_ID")
+
+# Авторизація Google Sheets через ENV
+scope = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+creds = Credentials.from_service_account_info(json.loads(os.getenv("GOOGLE_CREDENTIALS")), scopes=scope)
+client = gspread.authorize(creds)
 sheet = client.open_by_key(MAIN_SHEET_ID)
 users_ws = sheet.worksheet("Users")
 
 bot = telebot.TeleBot(BOT_TOKEN)
+app = Flask(__name__)
 
-# ---------- Мотиваційні повідомлення ----------
-MOTIVATION_QUOTES = [
-    "💪 Сьогодні — чудовий день, щоб зробити більше, ніж учора!",
-    "🔥 Маленький крок щодня — великий результат у підсумку!",
-    "🚀 Дій упевнено, і успіх прийде до тебе!",
-    "🏆 Твоя дисципліна — це головний секрет перемоги!",
-    "💡 Хто контролює свій день — контролює свій результат!"
+# ---------- МОТИВАЦІЙНІ ФРАЗИ ----------
+MOTIVATION = [
+    "🚀 Крок за кроком до перемоги!",
+    "🔥 Ти робиш відмінну роботу!",
+    "💪 З кожним днем ближче до цілі!",
+    "🌟 Пам’ятай — результат приходить до тих, хто не здається!"
 ]
 
-def get_random_motivation():
-    return random.choice(MOTIVATION_QUOTES)
-
 # ---------- ФУНКЦІЇ ----------
-
 def get_user_data(user_id):
-    """Отримати дані користувача з таблиці Users"""
     users = users_ws.get_all_records()
     for user in users:
         if str(user_id) == str(user["Telegram_ID"]):
             return user
     return None
 
-# ---------- ГОЛОВНЕ МЕНЮ ----------
 
+def normalize_url(url):
+    if not url:
+        return None
+    return url.replace("/edit", "/viewer")
+
+
+# ---------- ГОЛОВНЕ МЕНЮ ----------
 @bot.message_handler(commands=["start"])
 def start(message):
     user_id = message.from_user.id
@@ -54,36 +57,53 @@ def start(message):
         return
 
     name = user["Ім’я"]
-    bot.send_message(message.chat.id, f"👋 Привіт, {name}!\n{get_random_motivation()}")
+    role = user["Роль"]
 
+    bot.send_message(message.chat.id, f"👋 Привіт, {name}! Твоя роль: {role}")
+
+    # Головне меню
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add("🗺 Територія", "⚙️ Сервіси", "🎯 Фокуси")
+    markup.add("🌍 Територія", "🧰 Сервіси", "🎯 Фокуси")
+
+    # Випадкове мотиваційне повідомлення
+    import random
+    bot.send_message(message.chat.id, random.choice(MOTIVATION))
     bot.send_message(message.chat.id, "Вибери розділ 👇", reply_markup=markup)
 
-# ---------- ПІДМЕНЮ ----------
 
-@bot.message_handler(func=lambda message: message.text in ["🗺 Територія", "⚙️ Сервіси", "🎯 Фокуси"])
-def show_submenu(message):
+# ---------- ПІДМЕНЮ: ТЕРИТОРІЯ ----------
+@bot.message_handler(func=lambda message: message.text == "🌍 Територія")
+def territory_menu(message):
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
-    if message.text == "🗺 Територія":
-        markup.add("📋 План", "📍 Візити", "📊 Індекси", "✅ Задачі", "⬅️ Назад")
-    elif message.text == "⚙️ Сервіси":
-        markup.add("🛠 Сервіс-C", "⚙️ Сервіс-Х", "🎁 Промо", "💰 МФ", "⬅️ Назад")
-    elif message.text == "🎯 Фокуси":
-        markup.add("🎯 Фокуси", "🌱 Розвиток території", "⬅️ Назад")
+    markup.add("📋 План", "📊 Індекси", "🗓 Візити", "⬅️ Назад")
+    bot.send_message(message.chat.id, "📍 Обери напрям по території:", reply_markup=markup)
 
-    bot.send_message(message.chat.id, "Обери напрямок 👇", reply_markup=markup)
+
+# ---------- ПІДМЕНЮ: СЕРВІСИ ----------
+@bot.message_handler(func=lambda message: message.text == "🧰 Сервіси")
+def services_menu(message):
+    markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add("🛠 Сервіс-C", "⚙️ Сервіс-Х", "🎁 Промо", "💰 МФ", "⬅️ Назад")
+    bot.send_message(message.chat.id, "🧰 Обери потрібний сервіс:", reply_markup=markup)
+
+
+# ---------- ПІДМЕНЮ: ФОКУСИ ----------
+@bot.message_handler(func=lambda message: message.text == "🎯 Фокуси")
+def focuses_menu(message):
+    markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add("🌱 Розвиток територій", "⬅️ Назад")
+    bot.send_message(message.chat.id, "🎯 Фокуси місяця та розвиток територій:", reply_markup=markup)
+
 
 # ---------- ПОВЕРНЕННЯ НАЗАД ----------
-
 @bot.message_handler(func=lambda message: message.text == "⬅️ Назад")
 def back_to_main(message):
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add("🗺 Територія", "⚙️ Сервіси", "🎯 Фокуси")
-    bot.send_message(message.chat.id, "🔙 Повернувся у головне меню.", reply_markup=markup)
+    markup.add("🌍 Територія", "🧰 Сервіси", "🎯 Фокуси")
+    bot.send_message(message.chat.id, "🏠 Повернувся в головне меню.", reply_markup=markup)
 
-# ---------- ОБРОБКА КНОПОК І ВИВІД ЛІНКІВ ----------
 
+# ---------- ОБРОБКА КНОПОК І ВІДКРИТТЯ ЛІНКІВ ----------
 @bot.message_handler(func=lambda message: True)
 def handle_buttons(message):
     user_id = message.from_user.id
@@ -93,26 +113,40 @@ def handle_buttons(message):
         bot.reply_to(message, "⚠️ Тебе немає в базі.")
         return
 
-    text = message.text.strip().lower()
-    matched_column = None
+    column = message.text.strip()
+    if column == "⬅️ Назад":
+        back_to_main(message)
+        return
 
-    for col_name in user.keys():
-        if text in col_name.lower():
-            matched_column = col_name
-            break
+    url = user.get(column)
+    if not url:
+        bot.send_message(message.chat.id, f"⛔️ Для '{column}' ще немає посилання.")
+        return
 
-    if matched_column:
-        link = str(user[matched_column]).strip()
-        if link.startswith("http"):
-            motivation = get_random_motivation()
-            bot.send_message(message.chat.id, f"{motivation}\n\n🔗 {matched_column}:\n{link}")
-        else:
-            bot.send_message(message.chat.id, f"⛔️ Для '{matched_column}' ще немає посилання.")
-    else:
-        pass  # щоб не дублювати обробку в підменю
+Максим Солоп, [26.10.2025 23:18]
+clean_url = normalize_url(url)
+    bot.send_message(message.chat.id, f"🔗 {column}:\n{clean_url}")
 
-# ---------- ЗАПУСК БОТА ----------
 
-print("✅ Бот запущений...")
-bot.polling(none_stop=True)
-  
+# ---------- ВЕБХУК ДЛЯ RENDER ----------
+@app.route(f'/{BOT_TOKEN}', methods=['POST'])
+def webhook():
+    json_str = request.get_data().decode('UTF-8')
+    update = telebot.types.Update.de_json(json_str)
+    bot.process_new_updates([update])
+    return "!", 200
+
+
+@app.route('/')
+def home():
+    return "Bot is running", 200
+
+
+# ---------- ЗАПУСК ----------
+if __name__ == "__main__":
+    import requests
+    url = f"https://{os.getenv('RENDER_EXTERNAL_HOSTNAME')}/{BOT_TOKEN}"
+    bot.remove_webhook()
+    bot.set_webhook(url=url)
+    print(f"✅ Вебхук встановлено: {url}")
+    app.run(host="0.0.0.0", port=5000)
