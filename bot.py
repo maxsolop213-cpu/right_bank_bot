@@ -1,6 +1,5 @@
 import telebot
 import gspread
-from google.oauth2.service_account import Credentials
 from google.oauth2 import service_account
 from dotenv import load_dotenv
 import os
@@ -13,7 +12,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 MAIN_SHEET_ID = os.getenv("SPREADSHEET_ID")
 GOOGLE_CREDENTIALS_JSON = os.getenv("GOOGLE_CREDENTIALS")
 
-# Авторизація через JSON з Environment Variables
+# Авторизація через JSON із Render environment
 creds_dict = json.loads(GOOGLE_CREDENTIALS_JSON)
 creds = service_account.Credentials.from_service_account_info(
     creds_dict, scopes=["https://www.googleapis.com/auth/spreadsheets"]
@@ -24,9 +23,11 @@ users_ws = sheet.worksheet("Users")
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
+
 # ---------- ФУНКЦІЇ ----------
 
 def get_user_data(user_id):
+    """Отримати дані користувача з таблиці Users"""
     users = users_ws.get_all_records()
     for user in users:
         if str(user_id) == str(user["Telegram_ID"]):
@@ -35,6 +36,7 @@ def get_user_data(user_id):
 
 
 def normalize_url(url):
+    """Заміна /edit на /viewer"""
     if not url:
         return None
     return url.replace("/edit", "/viewer")
