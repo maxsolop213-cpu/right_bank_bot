@@ -73,7 +73,7 @@ def handle_buttons(message):
     bot.reply_to(message, f"🔗 {message.text}:\n{url}")
 
 # ---------- Запуск (webhook) ----------
-if __name__ == "_main_":
+if __name__ == "__main__":
     bot.remove_webhook()
     public_url = os.getenv("RENDER_EXTERNAL_URL")  # Render задає автоматично
     webhook_url = f"{public_url}/{BOT_TOKEN}"
