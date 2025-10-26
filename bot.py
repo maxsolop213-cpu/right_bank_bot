@@ -22,7 +22,7 @@ users_ws = sheet.worksheet("Users")
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 
 # ---------- Flask ----------
-app = Flask(name)
+app = Flask(__name__)
 
 @app.get("/")
 def index():
