@@ -120,8 +120,7 @@ def handle_buttons(message):
     if not url:
         bot.send_message(message.chat.id, f"⛔️ Для '{column}' ще немає посилання.")
         return
-
-clean_url = normalize_url(url)
+    clean_url = normalize_url(url)
     bot.send_message(message.chat.id, f"🔗 {column}:\n{clean_url}")
 
 
