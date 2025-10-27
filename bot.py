@@ -85,6 +85,7 @@ def start(message):
 @bot.message_handler(func=lambda msg: msg.text == "🗺 Територія")
 def territory_menu(message):
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add("🗺 Карта територій")
     markup.add("📋 План", "📊 Індекси", "📅 Візити", "✅ Задачі")
     markup.add("⬅️ Назад")
     bot.send_message(message.chat.id, "📍 Територія:", reply_markup=markup)
@@ -183,3 +184,4 @@ if __name__ == "__main__":
         print("⚠️ RENDER_EXTERNAL_HOSTNAME не задано. Перевір ENV у Render.")
 
     app.run(host="0.0.0.0", port=5000)
+ 
