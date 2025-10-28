@@ -38,7 +38,7 @@ except:
     remarks_ws.append_row(["Дата", "Користувач", "Автор зауваження", "Текст"])
 
 bot = telebot.TeleBot(BOT_TOKEN)
-app = Flask(name)
+app = Flask(__name__)
 
 # ---------- МОТИВАЦІЯ ----------
 MOTIVATION_DAILY = [
@@ -298,7 +298,7 @@ def home():
 
 
 # ---------- Запуск ----------
-if name == "main":
+if __name__ == "__main__":
     bot.remove_webhook()
     render_host = os.getenv("RENDER_EXTERNAL_HOSTNAME")
     if render_host:
