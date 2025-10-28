@@ -222,9 +222,9 @@ def generate_photo_stats_text():
     text = f"📊 Статистика за {datetime.now(tz).strftime('%d.%m')}\n"
     all_users = users_ws.get_all_records()
     sent_users = set(photo_data.keys())
-sorted_data = sorted(photo_data.items(), key=lambda x: len(x[1]
-["times"]), reverse=True)
-    for uid, data in sorted_data:
+    sorted_data = sorted(photo_data.items(), key=lambda x: len(x[1]
+    ["times"]), reverse=True)
+        for uid, data in sorted_data:
         times = sorted(data["times"])
         if len(times) > 1:
             fmt = "%H:%M:%S"
@@ -237,9 +237,9 @@ sorted_data = sorted(photo_data.items(), key=lambda x: len(x[1]
     # 🧾 Хто не надіслав
     missing = [u["Ім’я"] for u in all_users if str(u.get("Telegram_ID", "")).strip().isdigit() and str(u["Telegram_ID"]) not in sent_users]
     if missing:
-                text += "\n❌ Не надіслали фото сьогодні:\n" + ",
+            text += "\n❌ Не надіслали фото сьогодні:\n" + ",
     ".join(missing)
-    return text
+        return text
 
 def save_photo_stats_to_sheet():
     for uid, data in photo_data.items():
