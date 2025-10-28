@@ -19,8 +19,8 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 MAIN_SHEET_ID = os.getenv("SPREADSHEET_ID")
 GOOGLE_CREDENTIALS = os.getenv("GOOGLE_CREDENTIALS")
 
-ADMIN_ID = 6851674667  # 🔹 Твій Telegram ID (бачить керівні кнопки)
-TM_IDS = [6851674667, 6833216700]  # 🔹 Список ID, хто може бачити /check_foto
+ADMIN_ID = 6851674667
+TM_IDS = [6851674667, 6833216700]
 PHOTO_GROUP_ID = -1003236605419  # 📸 ID групи з фото
 
 scope = ["https://www.googleapis.com/auth/spreadsheets"]
@@ -55,10 +55,12 @@ def get_user_data(user_id):
             return user
     return None
 
+
 def normalize_url(url):
     if not url:
         return None
     return url.replace("/edit", "/viewer")
+
 
 def all_user_chat_ids():
     rows = users_ws.get_all_records()
@@ -68,6 +70,7 @@ def all_user_chat_ids():
         if tid.isdigit():
             ids.append(int(tid))
     return ids
+
 
 # ---------- ГОЛОВНЕ МЕНЮ ----------
 @bot.message_handler(commands=["start"])
@@ -91,6 +94,7 @@ def start(message):
 
     bot.send_message(message.chat.id, "Вибери розділ 👇", reply_markup=markup)
 
+
 # ---------- ПІДМЕНЮ ----------
 @bot.message_handler(func=lambda msg: msg.text == "🗺 Територія")
 def territory_menu(message):
@@ -100,12 +104,14 @@ def territory_menu(message):
     markup.add("⬅️ Назад")
     bot.send_message(message.chat.id, "📍 Територія:", reply_markup=markup)
 
+
 @bot.message_handler(func=lambda msg: msg.text == "🧩 Сервіси")
 def services_menu(message):
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add("🛠 Сервіс-C", "⚙️ Сервіс-Х", "👑 Premium Club", "💰 МФ")
     markup.add("⬅️ Назад")
     bot.send_message(message.chat.id, "🧩 Сервіси:", reply_markup=markup)
+
 
 @bot.message_handler(func=lambda msg: msg.text == "🎯 Фокуси")
 def focus_menu(message):
@@ -121,6 +127,7 @@ def knowledge_menu(message):
     markup.add("⬅️ Назад")
     bot.send_message(message.chat.id, "📚 Знання:", reply_markup=markup)
 
+
 # ---------- КЕРІВНИЦЬКІ ОПОВІЩЕННЯ ----------
 @bot.message_handler(func=lambda msg: msg.text == "📨 Оновлення даних")
 def notify_update(message):
@@ -133,6 +140,7 @@ def notify_update(message):
             pass
     bot.send_message(message.chat.id, "✅ Повідомлення про оновлення надіслано всім користувачам.")
 
+
 @bot.message_handler(func=lambda msg: msg.text == "🎯 Фокус дня (нагадування)")
 def notify_focus_day(message):
     if message.from_user.id != ADMIN_ID:
@@ -144,18 +152,18 @@ def notify_focus_day(message):
             pass
     bot.send_message(message.chat.id, "✅ Повідомлення 'Фокус дня' розіслано.")
 
+
 # ---------- АНАЛІЗ ФОТО-КОДІВ ----------
 photo_data = {}
 
-@bot.message_handler(func=lambda m: m.chat.id == PHOTO_GROUP_ID)
+@bot.message_handler(func=lambda m: m.chat.id == PHOTO_GROUP_ID and not (m.text and m.text.startswith('/')))
 def handle_photo_group_message(message):
-    # Беремо текст або підпис під фото
-    text = message.text or message.caption
-    if not text:
+    text_content = message.text or message.caption  # ✅ підтримка підписів до фото
+
+    if not text_content:
         return
 
-    # Шукаємо будь-які 4–8-значні коди в тексті чи підписі
-    codes = re.findall(r"\b\d{4,8}\b", text)
+    codes = re.findall(r"\b\d{5,7}\b", text_content)
     if not codes:
         return
 
@@ -166,13 +174,19 @@ def handle_photo_group_message(message):
 
     if uid not in photo_data:
         photo_data[uid] = {"name": name, "times": []}
+
     photo_data[uid]["times"].append(now)
+
 
 def generate_photo_stats_text():
     tz = pytz.timezone("Europe/Kyiv")
     if not photo_data:
         return "📊 Даних за сьогодні немає."
+
     text = f"📊 Статистика за {datetime.now(tz).strftime('%d.%m')}\n"
+    all_users = users_ws.get_all_records()
+    sent_users = set(photo_data.keys())
+
     for uid, data in photo_data.items():
         times = sorted(data["times"])
         if len(times) > 1:
@@ -182,7 +196,14 @@ def generate_photo_stats_text():
         else:
             avg_interval = 0
         text += f"\n{data['name']} — {len(times)} кодів\n⏰ Почав: {times[0]} | Завершив: {times[-1]}\n🕐 Інтервал: ~{avg_interval} хв\n"
+
+    # 🧾 Хто не надіслав
+    missing = [u["Ім’я"] for u in all_users if str(u.get("Telegram_ID", "")).strip().isdigit() and str(u["Telegram_ID"]) not in sent_users]
+    if missing:
+        text += "\n❌ Не надіслали фото сьогодні:\n" + ", ".join(missing)
+
     return text
+
 
 def save_photo_stats_to_sheet():
     for uid, data in photo_data.items():
@@ -198,6 +219,7 @@ def save_photo_stats_to_sheet():
         ])
     photo_data.clear()
 
+
 def send_photo_stats():
     text = generate_photo_stats_text()
     bot.send_message(PHOTO_GROUP_ID, text)
@@ -211,6 +233,8 @@ def manual_check_foto(message):
         return
     text = generate_photo_stats_text()
     bot.send_message(message.chat.id, text)
+
+
 # ---------- РОЗКЛАД (ранок/вечір) ----------
 def photo_group_scheduler():
     tz = pytz.timezone("Europe/Kyiv")
@@ -229,10 +253,12 @@ def photo_group_scheduler():
 
 threading.Thread(target=photo_group_scheduler, daemon=True).start()
 
+
 # ---------- ПОВЕРНЕННЯ ДО МЕНЮ ----------
 @bot.message_handler(func=lambda msg: msg.text == "⬅️ Назад")
 def back_to_main(message):
     start(message)
+
 
 # ---------- ОБРОБКА ЛІНКІВ ----------
 SKIP_BTNS = {"🗺 Територія", "🧩 Сервіси", "🎯 Фокуси", "📚 Знання", "⬅️ Назад",
@@ -252,6 +278,7 @@ def handle_links(message):
         return
     bot.send_message(message.chat.id, f"🔗 {column}:\n{normalize_url(url)}")
 
+
 # ---------- РАНКОВА МОТИВАЦІЯ ----------
 def daily_sender_loop():
     tz = pytz.timezone("Europe/Kyiv")
@@ -270,6 +297,7 @@ def daily_sender_loop():
                 last_sent_date = today
         time_module.sleep(30)
 
+
 # ---------- FLASK ВЕБХУК ----------
 @app.route(f"/{BOT_TOKEN}", methods=["POST"])
 def webhook():
@@ -281,6 +309,7 @@ def webhook():
 def home():
     return "Bot is running", 200
 
+
 # ---------- ЗАПУСК ----------
 if __name__ == "__main__":
     threading.Thread(target=daily_sender_loop, daemon=True).start()
@@ -291,4 +320,4 @@ if __name__ == "__main__":
         print(f"✅ Вебхук встановлено: {render_host}")
     else:
         print("⚠️ RENDER_EXTERNAL_HOSTNAME не задано. Перевір ENV у Render.")
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000)    
