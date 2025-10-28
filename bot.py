@@ -222,9 +222,9 @@ def generate_photo_stats_text():
     text = f"📊 Статистика за {datetime.now(tz).strftime('%d.%m')}\n"
     all_users = users_ws.get_all_records()
     sent_users = set(photo_data.keys())
-    sorted_data = sorted(photo_data.items(), key=lambda x: len(x[1]
-    ["times"]), reverse=True)
-        for uid, data in sorted_data:
+    sorted_data = sorted(photo_data.items(), key=lambda x:
+    len(x[1]["times"]), reverse=True)
+    for uid, data in sorted_data:
         times = sorted(data["times"])
         if len(times) > 1:
             fmt = "%H:%M:%S"
