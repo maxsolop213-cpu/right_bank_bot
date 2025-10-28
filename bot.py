@@ -19,8 +19,8 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 MAIN_SHEET_ID = os.getenv("SPREADSHEET_ID")
 GOOGLE_CREDENTIALS = os.getenv("GOOGLE_CREDENTIALS")
 
-ADMIN_ID = 6851674667  # 🔹 Твій Telegram ID (бачить керівні кнопки)
-TM_IDS = [6851674667, 6833216700]  # 🔹 Список ID, хто може бачити /check_foto
+ADMIN_ID = 6851674667  # 🔹 Твій Telegram ID
+TM_IDS = [6851674667, 6833216700]  # 🔹 Керівники, які бачать Check Foto
 PHOTO_GROUP_ID = -1003236605419  # 📸 ID групи з фото
 
 scope = ["https://www.googleapis.com/auth/spreadsheets"]
@@ -69,6 +69,10 @@ def all_user_chat_ids():
             ids.append(int(tid))
     return ids
 
+def all_user_names_ids():
+    rows = users_ws.get_all_records()
+    return {str(r.get("Telegram_ID", "")).strip(): r.get("Ім’я", "Невідомий") for r in rows if str(r.get("Telegram_ID", "")).strip().isdigit()}
+
 # ---------- ГОЛОВНЕ МЕНЮ ----------
 @bot.message_handler(commands=["start"])
 def start(message):
@@ -86,7 +90,7 @@ def start(message):
     markup.add("🎯 Фокуси", "📚 Знання")
 
     if user_id == ADMIN_ID or user_id in TM_IDS:
-        markup.add("📊 Check Foto")  # 🔹 Додаємо кнопку перевірки
+        markup.add("📊 Check Foto")
         markup.add("📨 Оновлення даних", "🎯 Фокус дня (нагадування)")
 
     bot.send_message(message.chat.id, "Вибери розділ 👇", reply_markup=markup)
@@ -147,11 +151,12 @@ def notify_focus_day(message):
 # ---------- АНАЛІЗ ФОТО-КОДІВ ----------
 photo_data = {}
 
-@bot.message_handler(func=lambda m: m.chat.id == PHOTO_GROUP_ID and not m.text.startswith('/'))
+@bot.message_handler(func=lambda m: m.chat.id == PHOTO_GROUP_ID)
 def handle_photo_group_message(message):
-    if not message.text:
+    text = message.text or message.caption  # ✅ ловить і текст, і caption
+    if not text:
         return
-    codes = re.findall(r"\b\d{5,7}\b", message.text)
+    codes = re.findall(r"[A-Za-zА-Яа-я0-9]{3,}", text)  # ✅ ловить будь-які формати кодів
     if not codes:
         return
     uid = str(message.from_user.id)
@@ -164,10 +169,16 @@ def handle_photo_group_message(message):
 
 def generate_photo_stats_text():
     tz = pytz.timezone("Europe/Kyiv")
+    all_users = all_user_names_ids()
+    active_ids = set(photo_data.keys())
+    inactive = [n for uid, n in all_users.items() if uid not in active_ids and int(uid) not in TM_IDS and int(uid) != ADMIN_ID]
+
     if not photo_data:
         return "📊 Даних за сьогодні немає."
+
+    sorted_data = sorted(photo_data.items(), key=lambda x: len(x[1]["times"]), reverse=True)
     text = f"📊 Статистика за {datetime.now(tz).strftime('%d.%m')}\n"
-    for uid, data in photo_data.items():
+    for uid, data in sorted_data:
         times = sorted(data["times"])
         if len(times) > 1:
             fmt = "%H:%M:%S"
@@ -176,6 +187,9 @@ def generate_photo_stats_text():
         else:
             avg_interval = 0
         text += f"\n{data['name']} — {len(times)} кодів\n⏰ Почав: {times[0]} | Завершив: {times[-1]}\n🕐 Інтервал: ~{avg_interval} хв\n"
+
+    if inactive:
+        text += "\n🚫 Не скинули фото сьогодні:\n" + ", ".join(inactive)
     return text
 
 def save_photo_stats_to_sheet():
@@ -187,25 +201,23 @@ def save_photo_stats_to_sheet():
             avg_interval = int(sum(diffs) / len(diffs) / 60)
         else:
             avg_interval = 0
-        photo_ws.append_row([
-            data["name"], uid, len(times), times[0], times[-1], avg_interval
-        ])
+        photo_ws.append_row([data["name"], uid, len(times), times[0], times[-1], avg_interval])
     photo_data.clear()
-
 def send_photo_stats():
     text = generate_photo_stats_text()
     bot.send_message(PHOTO_GROUP_ID, text)
     bot.send_message(PHOTO_GROUP_ID, "✅ Дякую всім за роботу сьогодні!")
     save_photo_stats_to_sheet()
 
-# ---------- /check_foto або кнопка ----------
+# ---------- /check_foto ----------
 @bot.message_handler(func=lambda msg: msg.text == "📊 Check Foto" or msg.text == "/check_foto")
 def manual_check_foto(message):
-    if message.from_user.id not in TM_IDS:
+    if message.from_user.id not in TM_IDS and message.from_user.id != ADMIN_ID:
         return
     text = generate_photo_stats_text()
     bot.send_message(message.chat.id, text)
-    # ---------- РОЗКЛАД (ранок/вечір) ----------
+
+# ---------- РОЗКЛАД ----------
 def photo_group_scheduler():
     tz = pytz.timezone("Europe/Kyiv")
     last_morning = None
@@ -223,7 +235,7 @@ def photo_group_scheduler():
 
 threading.Thread(target=photo_group_scheduler, daemon=True).start()
 
-# ---------- ПОВЕРНЕННЯ ДО МЕНЮ ----------
+# ---------- ПОВЕРНЕННЯ ----------
 @bot.message_handler(func=lambda msg: msg.text == "⬅️ Назад")
 def back_to_main(message):
     start(message)
