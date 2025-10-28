@@ -114,7 +114,7 @@ def focus_menu(message):
     markup.add("⬅️ Назад")
     bot.send_message(message.chat.id, "🎯 Фокуси:", reply_markup=markup)
 
-    @bot.message_handler(func=lambda msg: msg.text == "📚 Знання")
+@bot.message_handler(func=lambda msg: msg.text == "📚 Знання")
 def knowledge_menu(message):
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add("📖 База знань", "💎 JET")
