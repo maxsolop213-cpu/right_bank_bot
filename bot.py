@@ -37,7 +37,7 @@ except gspread.exceptions.WorksheetNotFound:
     remarks_ws = sheet.add_worksheet(title="PhotoRemarks", rows=100, cols=4)
 
 bot = telebot.TeleBot(BOT_TOKEN)
-app = Flask(__name__)
+app = Flask(__name__)   # ✅ Виправлено тут
 
 # ---------- МОТИВАЦІЯ ----------
 MOTIVATION_DAILY = [
@@ -152,7 +152,6 @@ def knowledge_menu(message):
     markup.add("⬅️ Назад")
     bot.send_message(message.chat.id, "📚 Знання:", reply_markup=markup)
 
-
 # ---------- АНАЛІЗ ФОТО ----------
 photo_data = {}
 album_captions = {}
@@ -251,22 +250,34 @@ def send_photo_stats():
 # ---------- /remark ----------
 @bot.message_handler(commands=["remark"])
 def remark_handler(message):
+    print("📩 Отримано команду /remark")
     if not is_tm_or_admin(message.from_user.id):
+        print("❌ Не має прав на remark")
         return
     if not message.reply_to_message:
         bot.reply_to(message, "⚠️ Відповідай на фото, до якого хочеш додати зауваження.")
+        print("⚠️ Не відповідь на фото")
         return
+
     photo_msg = message.reply_to_message
     name = photo_msg.from_user.first_name or photo_msg.from_user.username or "Невідомий"
     tz = pytz.timezone("Europe/Kyiv")
     now = datetime.now(tz).strftime("%d.%m %H:%M")
-    remarks_ws.append_row([
-        now,
-        name,
-        f"https://t.me/c/{str(PHOTO_GROUP_ID)[4:]}/{photo_msg.message_id}",
-        message.text.replace("/remark", "").strip() or "(Без тексту)"
-    ])
-    bot.reply_to(message, "✅ Зауваження додано.")
+    remark_text = message.text.replace("/remark", "").strip() or "(Без тексту)"
+    print(f"🧾 Записуємо у PhotoRemarks: {name} | {remark_text}")
+
+    try:
+        remarks_ws.append_row([
+            now,
+            name,
+            f"https://t.me/c/{str(PHOTO_GROUP_ID)[4:]}/{photo_msg.message_id}",
+            remark_text
+        ])
+        bot.reply_to(message, "✅ Зауваження додано.")
+        print("✅ Зауваження успішно додано в таблицю.")
+    except Exception as e:
+        bot.reply_to(message, f"❌ Помилка при записі: {e}")
+        print("❌ ПОМИЛКА:", e)
 
 # ---------- /check_foto ----------
 @bot.message_handler(func=lambda msg: msg.text == "📊 Check Foto" or msg.text == "/check_foto")
@@ -294,7 +305,7 @@ def photo_group_scheduler():
                 missing = [
                     u["Ім’я"]
                     for u in all_users
-                    if str(u.get("Telegram_ID", "")).strip().isdigit()
+                   if str(u.get("Telegram_ID", "")).strip().isdigit()
                     and str(u["Telegram_ID"]) not in sent_users
                     and str(u.get("Роль", "")).lower() not in excluded_roles
                 ]
@@ -309,6 +320,7 @@ def photo_group_scheduler():
         time_module.sleep(30)
 
 threading.Thread(target=photo_group_scheduler, daemon=True).start()
+
 # ---------- ПОВЕРНЕННЯ ДО МЕНЮ ----------
 @bot.message_handler(func=lambda msg: msg.text == "⬅️ Назад")
 def back_to_main(message):
@@ -371,4 +383,5 @@ if __name__ == "__main__":
         print(f"✅ Вебхук встановлено: {render_host}")
     else:
         print("⚠️ RENDER_EXTERNAL_HOSTNAME не задано. Перевір ENV у Render.")
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000) 
+
