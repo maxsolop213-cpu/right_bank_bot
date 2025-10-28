@@ -212,8 +212,7 @@ def photo_group_scheduler():
     last_morning = None
     last_evening = None
     while True:
-
-    now = datetime.now(tz)
+        now = datetime.now(tz)
         if now.weekday() <= 4:
             if now.hour == 9 and now.minute == 30 and last_morning != now.date():
                 bot.send_message(PHOTO_GROUP_ID, "📸 Доброго ранку! Очікую ваші фото та коди 💪")
