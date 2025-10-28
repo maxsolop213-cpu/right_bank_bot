@@ -112,7 +112,6 @@ def territory_menu(message):
     markup.add("⬅️ Назад")
     bot.send_message(message.chat.id, "📍 Територія:", reply_markup=markup)
 
-Максим Солоп, [28.10.2025 17:23]
 @bot.message_handler(func=lambda msg: msg.text == "🧩 Сервіси")
 def services_menu(message):
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
