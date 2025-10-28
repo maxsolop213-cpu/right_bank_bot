@@ -8,7 +8,7 @@ import json
 import random
 import threading
 import time as time_module
-from datetime import datetime, time as dtime
+from datetime import datetime
 import pytz
 import re
 
@@ -30,8 +30,15 @@ sheet = client.open_by_key(MAIN_SHEET_ID)
 users_ws = sheet.worksheet("Users")
 photo_ws = sheet.worksheet("PhotoStats")
 
+# створюємо аркуш для зауважень якщо нема
+try:
+    remarks_ws = sheet.worksheet("PhotoRemarks")
+except:
+    remarks_ws = sheet.add_worksheet(title="PhotoRemarks", rows=100, cols=4)
+    remarks_ws.append_row(["Дата", "Користувач", "Автор зауваження", "Текст"])
+
 bot = telebot.TeleBot(BOT_TOKEN)
-app = Flask(__name__)
+app = Flask(name)
 
 # ---------- МОТИВАЦІЯ ----------
 MOTIVATION_DAILY = [
@@ -84,16 +91,13 @@ def is_tm_or_admin(user_id):
         or user_id == ADMIN_ID
     )
 
-# ---------- Корисна функція для витягу кодів (будь-який формат) ----------
+
+# ---------- Корисна функція ----------
 def extract_codes_any_format(text):
-    """Повертає список кодів у тексті: 123456 або 123 456 або 123-456 і т.д."""
     if not text:
         return []
-    # З'єднати цифри, розділені пробілами/дефісами, наприклад "123 456" -> "123456"
     joined = re.sub(r"(?<=\d)[\s\-](?=\d)", "", text)
-    # Замінити все, крім цифр, на пробіли — щоб не зліплювати літери
     cleaned = re.sub(r"[^\d]", " ", joined)
-    # Знайти послідовності від 3 до 8 цифр
     return re.findall(r"(?<!\d)(\d{3,8})(?!\d)", cleaned)
 
 
@@ -117,6 +121,8 @@ def start(message):
         markup.add("📊 Check Foto", "📨 Оновлення даних", "🎯 Фокус дня (нагадування)")
 
     bot.send_message(message.chat.id, "Вибери розділ 👇", reply_markup=markup)
+
+
 # ---------- ПІДМЕНЮ ----------
 @bot.message_handler(func=lambda msg: msg.text == "🗺 Територія")
 def territory_menu(message):
@@ -126,6 +132,7 @@ def territory_menu(message):
     markup.add("⬅️ Назад")
     bot.send_message(message.chat.id, "📍 Територія:", reply_markup=markup)
 
+
 @bot.message_handler(func=lambda msg: msg.text == "🧩 Сервіси")
 def services_menu(message):
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -133,12 +140,14 @@ def services_menu(message):
     markup.add("⬅️ Назад")
     bot.send_message(message.chat.id, "🧩 Сервіси:", reply_markup=markup)
 
+
 @bot.message_handler(func=lambda msg: msg.text == "🎯 Фокуси")
 def focus_menu(message):
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add("🎯 Фокуси місяця", "🌱 Розвиток територій", "🎁 Промо", "🎯 Фокус дня")
     markup.add("⬅️ Назад")
     bot.send_message(message.chat.id, "🎯 Фокуси:", reply_markup=markup)
+
 
 @bot.message_handler(func=lambda msg: msg.text == "📚 Знання")
 def knowledge_menu(message):
@@ -148,30 +157,13 @@ def knowledge_menu(message):
     bot.send_message(message.chat.id, "📚 Знання:", reply_markup=markup)
 
 
-# ---------- АНАЛІЗ (коди + фото будь-якого типу) ----------
-photo_data = {}           # key: uid -> {"name","codes_count","photos","times","no_caption"}
-album_captions = {}       # media_group_id -> caption (для альбомів)
+# ---------- АНАЛІЗ (фото+коди) ----------
+photo_data = {}
+album_captions = {}
 
 @bot.message_handler(content_types=["photo", "document", "text"], func=lambda m: m.chat.id == PHOTO_GROUP_ID)
 def handle_photo_group_message(message):
-    """
-    Обробляємо:
-     - photo (message.photo)
-     - document з image/* mime (message.document)
-     - текст (message.text)
-    Рахуємо коди (з caption або text) і фотографії (будь-які).
-    """
-    # --- діагностика (зняти або коментувати, якщо не потрібно) ---
-    # print(f"DEBUG: got content_type={message.content_type}, from={getattr(message.from_user,'first_name',None)}")
-
-    # отримуємо текст для аналізу коду (caption або текст повідомлення)
-    text_content = None
-    if getattr(message, "caption", None):
-        text_content = message.caption
-    elif getattr(message, "text", None):
-        text_content = message.text
-
-    # альбоми: зберегти caption від першого елемента
+    text_content = message.caption or message.text
     if getattr(message, "media_group_id", None):
         mgid = str(message.media_group_id)
         if message.caption:
@@ -187,28 +179,14 @@ def handle_photo_group_message(message):
     if uid not in photo_data:
         photo_data[uid] = {"name": name, "codes_count": 0, "photos": 0, "times": [], "no_caption": 0}
 
-    # Порахувати фото (всі типи зображень)
-    counted_image = False
-    if message.photo:
+    if message.photo or (getattr(message, "document", None) and getattr(message.document, "mime_type", "").startswith("image")):
         photo_data[uid]["photos"] += 1
-        counted_image = True
-    elif getattr(message, "document", None):
-        dt = getattr(message.document, "mime_type", "") or ""
-        fname = getattr(message.document, "file_name", "") or ""
-        # якщо документ — картинка (image/*) або має розширення зображення
-        if dt.startswith("image/") or re.search(r"\.(jpg|jpeg|png|webp|gif|bmp|heic)$", fname, flags=re.IGNORECASE):
-            photo_data[uid]["photos"] += 1
-            counted_image = True
+        if not text_content:
+            photo_data[uid]["no_caption"] += 1
 
-    # Якщо це зображення без підпису — відмічаємо no_caption (щоб відрізнити)
-    if counted_image and not text_content:
-        photo_data[uid]["no_caption"] += 1
-# Знайти коди в тексті (caption або text) — працює для підписів під фото та для окремих смс
     codes = extract_codes_any_format(text_content) if text_content else []
     if codes:
-        # збільшуємо загальну кількість кодів (рахуємо кожен знайдений як окремий код)
         photo_data[uid]["codes_count"] += len(codes)
-        # лог часу (фіксуємо час відправки кодів)
         photo_data[uid]["times"].append(now)
 
 
@@ -220,7 +198,6 @@ def generate_photo_stats_text():
     all_users = users_ws.get_all_records()
     sent_users = set(photo_data.keys())
 
-    # Сортування: по кількості кодів, потім по фото
     sorted_data = sorted(photo_data.items(), key=lambda x: (x[1]["codes_count"], x[1]["photos"]), reverse=True)
     for uid, data in sorted_data:
         times = sorted(data["times"])
@@ -230,51 +207,37 @@ def generate_photo_stats_text():
             diffs = [(datetime.strptime(t2, fmt) - datetime.strptime(t1, fmt)).seconds for t1, t2 in zip(times, times[1:])]
             avg_interval = int(sum(diffs) / len(diffs) / 60)
         text += f"\n{data['name']} — {data['codes_count']} кодів, {data['photos']} фото\n"
-        text += f"⏰ Почав: {times[0] if times else '-'} | Завершив: {times[-1] if times else '-'}\n"
-        text += f"🕐 Інтервал: ~{avg_interval} хв"
-        if data.get("no_caption", 0):
-            text += f" | 📭 без підпису: {data['no_caption']}"
-        text += "\n"
+        text += f"⏰ Почав: {times[0] if times else '-'} | Завершив: {times[-1] if times else '-'} | 🕐 Інтервал: ~{avg_interval} хв\n"
 
-    # 🧾 Хто не надіслав — виключаємо ролі СВ і ТМ
     excluded_roles = {"св", "sv", "tm", "тм"}
-    missing = [
-        u["Ім’я"]
-        for u in all_users
-        if str(u.get("Telegram_ID", "")).strip().isdigit()
-        and str(u["Telegram_ID"]) not in sent_users
-        and str(u.get("Роль", "")).lower() not in excluded_roles
-    ]
+    missing = [u["Ім’я"] for u in all_users if str(u.get("Telegram_ID", "")).isdigit() and str(u["Telegram_ID"]) not in sent_users and str(u.get("Роль", "")).lower() not in excluded_roles]
     if missing:
         text += "\n❌ Не надіслали сьогодні:\n" + ", ".join(missing)
     return text
-
-
-def save_photo_stats_to_sheet():
-    for uid, data in photo_data.items():
-        times = sorted(data["times"])
-        first = times[0] if times else "-"
-        last = times[-1] if times else "-"
-        photo_ws.append_row([
-            data["name"], uid, data["codes_count"], data["photos"], first, last,
-            # avg interval
-            int((sum(
-                (datetime.strptime(t2, "%H:%M:%S") - datetime.strptime(t1, "%H:%M:%S")).seconds
-                for t1, t2 in zip(times, times[1:])
-            ) / len(times[1:]) / 60) if len(times) > 1 else 0),
-            data.get("no_caption", 0)
-        ])
-    photo_data.clear()
-
-
 def send_photo_stats():
     text = generate_photo_stats_text()
     bot.send_message(PHOTO_GROUP_ID, text)
     bot.send_message(PHOTO_GROUP_ID, "✅ Дякую всім за роботу сьогодні!")
-    save_photo_stats_to_sheet()
 
 
-# ---------- /check_foto або кнопка ----------
+# ---------- /remark ----------
+@bot.message_handler(commands=["remark"])
+def remark_handler(message):
+    if not is_tm_or_admin(message.from_user.id):
+        return
+    if not message.reply_to_message or not message.text.strip().split(" ", 1)[-1]:
+        bot.reply_to(message, "📸 Відповідай на фото з текстом, напр.: /remark Представленість по ТТ не відповідає стандарту")
+        return
+    target = message.reply_to_message.from_user
+    author = message.from_user.first_name
+    text = message.text.split(" ", 1)[1]
+    tz = pytz.timezone("Europe/Kyiv")
+    date = datetime.now(tz).strftime("%d.%m.%Y %H:%M")
+    remarks_ws.append_row([date, target.first_name, author, text])
+    bot.reply_to(message, f"⚠️ Зауваження для {target.first_name}: {text}\n✅ Зафіксовано у базі.")
+
+
+# ---------- /check_foto ----------
 @bot.message_handler(func=lambda msg: msg.text == "📊 Check Foto" or msg.text == "/check_foto")
 def manual_check_foto(message):
     if not is_tm_or_admin(message.from_user.id):
@@ -283,82 +246,59 @@ def manual_check_foto(message):
     bot.send_message(message.chat.id, text)
 
 
-# ---------- РОЗКЛАД (ранок/вечір) ----------
+# ---------- РОЗКЛАД (ранок/вечір/нагадування) ----------
 def photo_group_scheduler():
     tz = pytz.timezone("Europe/Kyiv")
     last_morning = None
     last_evening = None
+    last_remind = None
+    last_weekly = None
     while True:
         now = datetime.now(tz)
+        # будні дні
         if now.weekday() <= 4:
+            # ранкове повідомлення
             if now.hour == 9 and now.minute == 30 and last_morning != now.date():
                 bot.send_message(PHOTO_GROUP_ID, "📸 Доброго ранку! Очікую ваші фото та коди 💪")
                 last_morning = now.date()
+            # нагадування о 10:00
+            if now.hour == 10 and now.minute == 0 and last_remind != now.date():
+                all_users = users_ws.get_all_records()
+                sent_users = set(photo_data.keys())
+                missing = [u["Ім’я"] for u in all_users if str(u.get("Telegram_ID", "")).isdigit() and str(u["Telegram_ID"]) not in sent_users and str(u.get("Роль", "")).lower() not in {"св", "tm", "тм"}]
+                if missing:
+                    bot.send_message(PHOTO_GROUP_ID, f"⚠️ Не надіслали фото сьогодні:\n{', '.join(missing)}")
+                last_remind = now.date()
+            # вечірній звіт
             if now.hour == 19 and now.minute == 0 and last_evening != now.date():
                 send_photo_stats()
                 last_evening = now.date()
+        # щотижневий звіт у п'ятницю
+        if now.weekday() == 4 and now.hour == 19 and now.minute == 5 and last_weekly != now.date():
+            bot.send_message(PHOTO_GROUP_ID, "📊 Підсумок тижня: 🥇 Найактивніші, 🕐 Найпізніші старти, 🔁 Кому нагадували частіше. Деталі в таблиці PhotoStats 💼")
+            last_weekly = now.date()
+
         time_module.sleep(30)
 
 
 threading.Thread(target=photo_group_scheduler, daemon=True).start()
 
-# ---------- ПОВЕРНЕННЯ ДО МЕНЮ ----------
-@bot.message_handler(func=lambda msg: msg.text == "⬅️ Назад")
-def back_to_main(message):
-    start(message)
-# ---------- ОБРОБКА ЛІНКІВ ----------
-SKIP_BTNS = {"🗺 Територія", "🧩 Сервіси", "🎯 Фокуси", "📚 Знання",
-              "⬅️ Назад", "📨 Оновлення даних", "🎯 Фокус дня (нагадування)", "📊 Check Foto"}
 
-
-@bot.message_handler(func=lambda msg: msg.text not in SKIP_BTNS)
-def handle_links(message):
-    user_id = message.from_user.id
-    user = get_user_data(user_id)
-    if not user:
-        bot.reply_to(message, "⚠️ Тебе немає в базі.")
-        return
-    column = message.text.strip()
-    url = user.get(column)
-    if not url:
-        bot.send_message(message.chat.id, f"⛔️ Для '{column}' ще немає посилання.")
-        return
-    bot.send_message(message.chat.id, f"🔗 {column}:\n{normalize_url(url)}")
-
-
-# ---------- РАНКОВА МОТИВАЦІЯ ----------
-def daily_sender_loop():
-    tz = pytz.timezone("Europe/Kyiv")
-    last_sent_date = None
-    while True:
-        now = datetime.now(tz)
-        if now.weekday() <= 4 and now.hour == 9 and now.minute == 30:
-            today = now.date()
-            if last_sent_date != today:
-                text = random.choice(MOTIVATION_DAILY)
-                for cid in all_user_chat_ids():
-                    try:
-                        bot.send_message(cid, text)
-                    except Exception:
-                        pass
-                last_sent_date = today
-        time_module.sleep(30)
-
-
-# ---------- FLASK ВЕБХУК ----------
+# ---------- Вебхук ----------
 @app.route(f"/{BOT_TOKEN}", methods=["POST"])
 def webhook():
     update = telebot.types.Update.de_json(request.data.decode("utf-8"))
     bot.process_new_updates([update])
     return "!", 200
 
+
 @app.route("/")
 def home():
     return "Bot is running", 200
 
-# ---------- ЗАПУСК ----------
-if __name__ == "__main__":
-    threading.Thread(target=daily_sender_loop, daemon=True).start()
+
+# ---------- Запуск ----------
+if name == "main":
     bot.remove_webhook()
     render_host = os.getenv("RENDER_EXTERNAL_HOSTNAME")
     if render_host:
