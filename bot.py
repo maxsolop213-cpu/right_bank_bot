@@ -18,6 +18,8 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 MAIN_SHEET_ID = os.getenv("SPREADSHEET_ID")
 GOOGLE_CREDENTIALS = os.getenv("GOOGLE_CREDENTIALS")
 
+ADMIN_ID = 6851674667  # 🔹 Твій Telegram ID (лише ти бачиш керівні кнопки)
+
 scope = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 creds = Credentials.from_service_account_info(json.loads(GOOGLE_CREDENTIALS), scopes=scope)
 client = gspread.authorize(creds)
@@ -55,7 +57,6 @@ def normalize_url(url):
     return url.replace("/edit", "/viewer")
 
 def all_user_chat_ids():
-    """Повертає список chat_id (Telegram_ID) з таблиці, де поле заповнене."""
     rows = users_ws.get_all_records()
     ids = []
     for r in rows:
@@ -79,6 +80,11 @@ def start(message):
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add("🗺 Територія", "🧩 Сервіси")
     markup.add("🎯 Фокуси", "📚 Знання")
+
+    # 🔹 Додаткові кнопки тільки для тебе
+    if user_id == ADMIN_ID:
+        markup.add("📨 Оновлення даних", "🎯 Фокус дня (нагадування)")
+
     bot.send_message(message.chat.id, "Вибери розділ 👇", reply_markup=markup)
 
 # ---------- ПІДМЕНЮ ----------
@@ -100,16 +106,39 @@ def services_menu(message):
 @bot.message_handler(func=lambda msg: msg.text == "🎯 Фокуси")
 def focus_menu(message):
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add("🎯 Фокуси місяця", "🌱 Розвиток територій", "🎁 Промо")
+    markup.add("🎯 Фокуси місяця", "🌱 Розвиток територій", "🎁 Промо", "🎯 Фокус дня")
     markup.add("⬅️ Назад")
     bot.send_message(message.chat.id, "🎯 Фокуси:", reply_markup=markup)
 
-@bot.message_handler(func=lambda msg: msg.text == "📚 Знання")
+    @bot.message_handler(func=lambda msg: msg.text == "📚 Знання")
 def knowledge_menu(message):
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add("📖 База знань")
+    markup.add("📖 База знань", "💎 JET")
     markup.add("⬅️ Назад")
     bot.send_message(message.chat.id, "📚 Знання:", reply_markup=markup)
+
+# ---------- КЕРІВНИЦЬКІ ОПОВІЩЕННЯ ----------
+@bot.message_handler(func=lambda msg: msg.text == "📨 Оновлення даних")
+def notify_update(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    for cid in all_user_chat_ids():
+        try:
+            bot.send_message(cid, "📢 Дані оновлено! Перевір таблиці та працюй з актуальною інформацією.")
+        except Exception:
+            pass
+    bot.send_message(message.chat.id, "✅ Повідомлення про оновлення надіслано всім користувачам.")
+
+@bot.message_handler(func=lambda msg: msg.text == "🎯 Фокус дня (нагадування)")
+def notify_focus_day(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    for cid in all_user_chat_ids():
+        try:
+            bot.send_message(cid, "🎯 Перевір фокус дня! Зосередься на головних напрямках сьогодні.")
+        except Exception:
+            pass
+    bot.send_message(message.chat.id, "✅ Повідомлення 'Фокус дня' розіслано.")
 
 # ---------- ПОВЕРНЕННЯ ДО ГОЛОВНОГО МЕНЮ ----------
 @bot.message_handler(func=lambda msg: msg.text == "⬅️ Назад")
@@ -117,24 +146,23 @@ def back_to_main(message):
     start(message)
 
 # ---------- ОБРОБКА КНОПОК З ЛІНКАМИ ----------
-SKIP_BTNS = {"🗺 Територія", "🧩 Сервіси", "🎯 Фокуси", "📚 Знання", "⬅️ Назад"}
+SKIP_BTNS = {
+    "🗺 Територія", "🧩 Сервіси", "🎯 Фокуси", "📚 Знання",
+    "⬅️ Назад", "📨 Оновлення даних", "🎯 Фокус дня (нагадування)"
+}
 
 @bot.message_handler(func=lambda msg: msg.text not in SKIP_BTNS)
 def handle_links(message):
     user_id = message.from_user.id
     user = get_user_data(user_id)
-
     if not user:
         bot.reply_to(message, "⚠️ Тебе немає в базі.")
         return
-
     column = message.text.strip()
     url = user.get(column)
-
     if not url:
         bot.send_message(message.chat.id, f"⛔️ Для '{column}' ще немає посилання.")
         return
-
     clean_url = normalize_url(url)
     bot.send_message(message.chat.id, f"🔗 {column}:\n{clean_url}")
 
@@ -143,7 +171,6 @@ def daily_sender_loop():
     tz = pytz.timezone("Europe/Kyiv")
     target = dtime(hour=9, minute=30)
     last_sent_date = None
-
     while True:
         now = datetime.now(tz)
         if now.weekday() <= 4:  # Пн–Пт
@@ -173,7 +200,6 @@ def home():
 # ---------- ЗАПУСК ----------
 if __name__ == "__main__":
     threading.Thread(target=daily_sender_loop, daemon=True).start()
-
     bot.remove_webhook()
     render_host = os.getenv("RENDER_EXTERNAL_HOSTNAME")
     if render_host:
@@ -182,6 +208,4 @@ if __name__ == "__main__":
         print(f"✅ Вебхук встановлено: {render_url}")
     else:
         print("⚠️ RENDER_EXTERNAL_HOSTNAME не задано. Перевір ENV у Render.")
-
     app.run(host="0.0.0.0", port=5000)
- 
