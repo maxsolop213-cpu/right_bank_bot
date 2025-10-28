@@ -73,16 +73,12 @@ def all_user_chat_ids():
 
 
 def is_tm_or_admin(user_id):
-    """Визначає, чи користувач має роль ТМ або Admin або VIP ТП"""
+    """Визначає, чи користувач має роль ТМ, Admin або VIP ТП"""
     user = get_user_data(user_id)
     if not user:
         return False
     role = str(user.get("Роль", "")).lower()
-    return (
-        role in ["tm", "тм", "admin", "адмін", "vip тп", "vip tp"]
-        or user_id in TM_IDS
-        or user_id == ADMIN_ID
-    )
+    return role in ["tm", "тм", "admin", "адмін", "vip тп", "vip tp"] or user_id in TM_IDS or user_id == ADMIN_ID
 
 
 # ---------- ГОЛОВНЕ МЕНЮ ----------
@@ -139,12 +135,37 @@ def knowledge_menu(message):
     bot.send_message(message.chat.id, "📚 Знання:", reply_markup=markup)
 
 
+# ---------- КЕРІВНИЦЬКІ ОПОВІЩЕННЯ ----------
+@bot.message_handler(func=lambda msg: msg.text == "📨 Оновлення даних")
+def notify_update(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    for cid in all_user_chat_ids():
+        try:
+            bot.send_message(cid, "📢 Дані оновлено! Перевір таблиці та працюй з актуальною інформацією.")
+        except Exception:
+            pass
+    bot.send_message(message.chat.id, "✅ Повідомлення про оновлення надіслано всім користувачам.")
+
+
+@bot.message_handler(func=lambda msg: msg.text == "🎯 Фокус дня (нагадування)")
+def notify_focus_day(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    for cid in all_user_chat_ids():
+        try:
+            bot.send_message(cid, "🎯 Перевір фокус дня! Зосередься на головних напрямках сьогодні.")
+        except Exception:
+            pass
+    bot.send_message(message.chat.id, "✅ Повідомлення 'Фокус дня' розіслано.")
+
+
 # ---------- АНАЛІЗ ФОТО ----------
 photo_data = {}
 
 @bot.message_handler(func=lambda m: m.chat.id == PHOTO_GROUP_ID)
 def handle_photo_group_message(message):
-    """Рахуємо кількість фото від кожного користувача"""
+    """Рахуємо будь-які фото (з підписом, без, або альбоми)"""
     uid = str(message.from_user.id)
     name = message.from_user.first_name or message.from_user.username or "Невідомий"
     tz = pytz.timezone("Europe/Kyiv")
@@ -157,7 +178,7 @@ def handle_photo_group_message(message):
         photo_data[uid]["photos"] += 1
         photo_data[uid]["times"].append(now)
 
-        # --- Додано: підтримка альбомів (media_group_id) ---
+        # Альбом — рахуємо тільки один раз
         if getattr(message, "media_group_id", None):
             mgid = str(message.media_group_id)
             if "albums" not in photo_data[uid]:
@@ -184,8 +205,8 @@ def generate_photo_stats_text():
         if times:
             text += f"⏰ Почав: {times[0]} | Завершив: {times[-1]}\n"
 
-    # 🧾 Хто не надіслав (без ролей СВ, ТМ, Admin)
-    excluded_roles = ["св", "tm", "тм", "admin", "адмін", "vip тп", "vip tp"]
+    # 🧾 Хто не надіслав (без ТМ і СВ)
+    excluded_roles = ["tm", "тм", "admin", "адмін", "св", "sv", "vip тп", "vip tp"]
     missing = [
         u["Ім’я"]
         for u in all_users
@@ -205,8 +226,6 @@ def save_photo_stats_to_sheet():
             data["name"], uid, data["photos"], times[0] if times else "-", times[-1] if times else "-"
         ])
     photo_data.clear()
-
-
 def send_photo_stats():
     text = generate_photo_stats_text()
     bot.send_message(PHOTO_GROUP_ID, text)
@@ -241,6 +260,32 @@ def photo_group_scheduler():
 
 
 threading.Thread(target=photo_group_scheduler, daemon=True).start()
+
+
+# ---------- ПОВЕРНЕННЯ ДО МЕНЮ ----------
+@bot.message_handler(func=lambda msg: msg.text == "⬅️ Назад")
+def back_to_main(message):
+    start(message)
+
+
+# ---------- ОБРОБКА ЛІНКІВ ----------
+SKIP_BTNS = {"🗺 Територія", "🧩 Сервіси", "🎯 Фокуси", "📚 Знання",
+              "⬅️ Назад", "📨 Оновлення даних", "🎯 Фокус дня (нагадування)", "📊 Check Foto"}
+
+
+@bot.message_handler(func=lambda msg: msg.text not in SKIP_BTNS)
+def handle_links(message):
+    user_id = message.from_user.id
+    user = get_user_data(user_id)
+    if not user:
+        bot.reply_to(message, "⚠️ Тебе немає в базі.")
+        return
+    column = message.text.strip()
+    url = user.get(column)
+    if not url:
+        bot.send_message(message.chat.id, f"⛔️ Для '{column}' ще немає посилання.")
+        return
+    bot.send_message(message.chat.id, f"🔗 {column}:\n{normalize_url(url)}")
 
 
 # ---------- РАНКОВА МОТИВАЦІЯ ----------
