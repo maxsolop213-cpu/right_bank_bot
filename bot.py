@@ -237,8 +237,7 @@ def generate_photo_stats_text():
     # 🧾 Хто не надіслав
     missing = [u["Ім’я"] for u in all_users if str(u.get("Telegram_ID", "")).strip().isdigit() and str(u["Telegram_ID"]) not in sent_users]
     if missing:
-            text += "\n❌ Не надіслали фото сьогодні:\n" + ",
-    ".join(missing)
+            text += "\n❌ Не надіслали фото сьогодні:\n" + ", ".join(missing)
         return text
 
 def save_photo_stats_to_sheet():
