@@ -1,4 +1,3 @@
-
 import telebot
 import gspread
 from google.oauth2.service_account import Credentials
@@ -86,7 +85,8 @@ def start(message):
     markup.add("🗺 Територія", "🧩 Сервіси")
     markup.add("🎯 Фокуси", "📚 Знання")
 
-    if user_id == ADMIN_ID:
+    if user_id == ADMIN_ID or user_id in TM_IDS:
+        markup.add("📊 Check Foto")  # 🔹 Додаємо кнопку перевірки
         markup.add("📨 Оновлення даних", "🎯 Фокус дня (нагадування)")
 
     bot.send_message(message.chat.id, "Вибери розділ 👇", reply_markup=markup)
@@ -198,15 +198,14 @@ def send_photo_stats():
     bot.send_message(PHOTO_GROUP_ID, "✅ Дякую всім за роботу сьогодні!")
     save_photo_stats_to_sheet()
 
-# ---------- /check_foto ----------
-@bot.message_handler(commands=["check_foto"])
+# ---------- /check_foto або кнопка ----------
+@bot.message_handler(func=lambda msg: msg.text == "📊 Check Foto" or msg.text == "/check_foto")
 def manual_check_foto(message):
     if message.from_user.id not in TM_IDS:
         return
     text = generate_photo_stats_text()
     bot.send_message(message.chat.id, text)
-
-# ---------- РОЗКЛАД (ранок/вечір) ----------
+    # ---------- РОЗКЛАД (ранок/вечір) ----------
 def photo_group_scheduler():
     tz = pytz.timezone("Europe/Kyiv")
     last_morning = None
@@ -230,7 +229,8 @@ def back_to_main(message):
     start(message)
 
 # ---------- ОБРОБКА ЛІНКІВ ----------
-SKIP_BTNS = {"🗺 Територія", "🧩 Сервіси", "🎯 Фокуси", "📚 Знання", "⬅️ Назад", "📨 Оновлення даних", "🎯 Фокус дня (нагадування)"}
+SKIP_BTNS = {"🗺 Територія", "🧩 Сервіси", "🎯 Фокуси", "📚 Знання", "⬅️ Назад",
+              "📨 Оновлення даних", "🎯 Фокус дня (нагадування)", "📊 Check Foto"}
 
 @bot.message_handler(func=lambda msg: msg.text not in SKIP_BTNS)
 def handle_links(message):
