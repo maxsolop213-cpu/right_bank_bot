@@ -157,6 +157,17 @@ def handle_photo_group_message(message):
         photo_data[uid]["photos"] += 1
         photo_data[uid]["times"].append(now)
 
+        # --- Додано: підтримка альбомів (media_group_id) ---
+        if getattr(message, "media_group_id", None):
+            mgid = str(message.media_group_id)
+            if "albums" not in photo_data[uid]:
+                photo_data[uid]["albums"] = []
+            if mgid not in photo_data[uid]["albums"]:
+                photo_data[uid]["albums"].append(mgid)
+                photo_data[uid]["photos"] += 1
+                photo_data[uid]["times"].append(now)
+            return
+
 
 def generate_photo_stats_text():
     tz = pytz.timezone("Europe/Kyiv")
@@ -230,6 +241,8 @@ def photo_group_scheduler():
 
 
 threading.Thread(target=photo_group_scheduler, daemon=True).start()
+
+
 # ---------- РАНКОВА МОТИВАЦІЯ ----------
 def daily_sender_loop():
     tz = pytz.timezone("Europe/Kyiv")
