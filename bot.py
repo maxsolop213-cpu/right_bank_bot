@@ -30,6 +30,9 @@ sheet = client.open_by_key(MAIN_SHEET_ID)
 users_ws = sheet.worksheet("Users")
 photo_ws = sheet.worksheet("PhotoStats")
 
+# 🔹 Аркуш із історіями (для ранку та вечора)
+inspiration_ws = sheet.worksheet("Inspiration_Business")
+
 # 🔹 Створення аркуша для зауважень, якщо його нема
 try:
     remarks_ws = sheet.worksheet("PhotoRemarks")
@@ -89,6 +92,22 @@ def is_tm_or_admin(user_id):
         or user_id in TM_IDS
         or user_id == ADMIN_ID
     )
+
+# 🔹 Функція для отримання історії з таблиці
+def get_next_inspiration_text(period="Morning"):
+    """
+    Бере наступну історію з таблиці для ранку або вечора
+    і відмічає її як надіслану
+    """
+    data = inspiration_ws.get_all_records()
+    for i, row in enumerate(data):
+        # шукаємо рядок з потрібним типом (Morning / Evening) і без статусу
+        if row.get("Тип") == period and not row.get("Статус"):
+            # позначаємо історію як відправлену
+            inspiration_ws.update_cell(i + 2, 3, "✅ Надіслано")
+            return row.get("Текст")
+    # якщо всі відправлені — нічого не вертаємо
+    return None
 
 # ---------- Корисна функція для витягу кодів ----------
 def extract_codes_any_format(text):
@@ -297,6 +316,15 @@ def photo_group_scheduler():
         if now.weekday() <= 4:
             if now.hour == 9 and now.minute == 30 and last_morning != now.date():
                 bot.send_message(PHOTO_GROUP_ID, "📸 Доброго ранку! Очікую ваші фото та коди 💪")
+                # 🔹 Надсилаємо ранкову історію
+        story = get_next_inspiration_text("Morning")
+        if story:
+            for cid in all_user_chat_ids():
+                try:
+                    bot.send_message(cid, story)
+                except Exception:
+                    pass
+            
                 last_morning = now.date()
             if now.hour == 10 and now.minute == 0:
                 all_users = users_ws.get_all_records()
@@ -313,6 +341,15 @@ def photo_group_scheduler():
                     bot.send_message(PHOTO_GROUP_ID, f"📸 Не бачу фото від: {', '.join(missing)}")
             if now.hour == 19 and now.minute == 0 and last_evening != now.date():
                 send_photo_stats()
+                # 🔹 Надсилаємо вечірню історію
+    story = get_next_inspiration_text("Evening")
+    if story:
+        for cid in all_user_chat_ids():
+            try:
+                bot.send_message(cid, story)
+            except Exception:
+                pass
+            
                 last_evening = now.date()
             if now.weekday() == 4 and now.hour == 18 and now.minute == 0:
                 bot.send_message(PHOTO_GROUP_ID, "📅 Підсумок тижня готується...")
