@@ -272,7 +272,7 @@ def remark_handler(message):
     ])
     bot.reply_to(message, "✅ Зауваження додано.")
     print(f"✅ Зауваження успішно додано в таблицю: {name} | {remark_text}")
-except Exception as e:
+    except Exception as e:
     bot.reply_to(message, "❌ Помилка при записі зауваження.")
     import traceback
     print("❌ ПОМИЛКА append_row:")
