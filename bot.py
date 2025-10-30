@@ -210,9 +210,9 @@ def generate_photo_stats_text():
             fmt = "%H:%M:%S"
             diffs = [(datetime.strptime(t2, fmt) - datetime.strptime(t1, fmt)).seconds for t1, t2 in zip(times, times[1:])]
             avg_interval = int(sum(diffs) / len(diffs) / 60)
-        text += f"\n{data['name']} — {data['codes_count']} кодів, {data['photos']} фото\n"
-text += f"⏰ Почав: {times[0] if times else '-'} | Завершив: {times[-1] if times else '-'}\n"
-        text += f"🕐 Інтервал: ~{avg_interval} хв"
+            text += f"\n{data['name']} — {data['codes_count']} кодів, {data['photos']} фото\n"
+            text += f"⏰ Почав: {times[0] if times else '-'} | Завершив: {times[-1] if times else '-'}\n"
+            text += f"🕐 Інтервал: ~{avg_interval} хв"
         if data.get("no_caption", 0):
             text += f" | 📭 без підпису: {data['no_caption']}"
         text += "\n"
