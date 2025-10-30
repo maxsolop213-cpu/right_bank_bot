@@ -21,7 +21,7 @@ GOOGLE_CREDENTIALS = os.getenv("GOOGLE_CREDENTIALS")
 
 ADMIN_ID = 6851674667
 TM_IDS = [6851674667, 6833216700]
-PHOTO_GROUP_ID = -1003236605419  # 📸 ID групи з фото
+PHOTO_GROUP_ID = -1003236605419 # 📸 ID групи з фото
 
 scope = ["https://www.googleapis.com/auth/spreadsheets"]
 creds = Credentials.from_service_account_info(json.loads(GOOGLE_CREDENTIALS), scopes=scope)
