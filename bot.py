@@ -334,8 +334,8 @@ def photo_group_scheduler():
                 ]
                 if missing:
                     bot.send_message(PHOTO_GROUP_ID, f"📸 Не бачу фото від: {', '.join(missing)}")
-            # Додатковий запуск статистики о 14:05
-            if now.hour == 14 and now.minute == 05:
+            # Додатковий запуск статистики о 14:30
+            if now.hour == 14 and now.minute == 30:
                 bot.send_message(PHOTO_GROUP_ID, "📊 Проміжна статистика за день:")
                 send_photo_stats()        
             if now.hour == 19 and now.minute == 0 and last_evening != now.date():
