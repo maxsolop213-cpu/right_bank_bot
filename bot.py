@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 import telebot
 import gspread
 from google.oauth2.service_account import Credentials
@@ -23,7 +22,7 @@ GOOGLE_CREDENTIALS = os.getenv("GOOGLE_CREDENTIALS")
 
 ADMIN_ID = 6851674667
 TM_IDS = [6851674667, 6833216700]
-PHOTO_GROUP_ID = -1003236605419 # 📸 ID групи з фото
+PHOTO_GROUP_ID = -1003236605419  # 📸 ID групи з фото
 
 scope = ["https://www.googleapis.com/auth/spreadsheets"]
 creds = Credentials.from_service_account_info(json.loads(GOOGLE_CREDENTIALS), scopes=scope)
@@ -39,7 +38,7 @@ except gspread.exceptions.WorksheetNotFound:
     remarks_ws = sheet.add_worksheet(title="PhotoRemarks", rows=100, cols=4)
 
 bot = telebot.TeleBot(BOT_TOKEN)
-app = Flask(__name__)   # ✅ Виправлено тут
+app = Flask(__name__)  # ✅
 
 # ---------- МОТИВАЦІЯ ----------
 MOTIVATION_DAILY = [
@@ -121,7 +120,6 @@ def start(message):
 
     bot.send_message(message.chat.id, "Вибери розділ 👇", reply_markup=markup)
 
-# ---------- ПІДМЕНЮ ----------
 @bot.message_handler(func=lambda msg: msg.text == "🗺 Територія")
 def territory_menu(message):
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -130,7 +128,6 @@ def territory_menu(message):
     markup.add("⬅️ Назад")
     bot.send_message(message.chat.id, "📍 Територія:", reply_markup=markup)
 
-
 @bot.message_handler(func=lambda msg: msg.text == "🧩 Сервіси")
 def services_menu(message):
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -138,14 +135,12 @@ def services_menu(message):
     markup.add("⬅️ Назад")
     bot.send_message(message.chat.id, "🧩 Сервіси:", reply_markup=markup)
 
-
 @bot.message_handler(func=lambda msg: msg.text == "🎯 Фокуси")
 def focus_menu(message):
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add("🎯 Фокуси місяця", "🌱 Розвиток територій", "🎁 Промо", "🎯 Фокус дня")
     markup.add("⬅️ Назад")
     bot.send_message(message.chat.id, "🎯 Фокуси:", reply_markup=markup)
-
 
 @bot.message_handler(func=lambda msg: msg.text == "📚 Знання")
 def knowledge_menu(message):
@@ -210,9 +205,9 @@ def generate_photo_stats_text():
             fmt = "%H:%M:%S"
             diffs = [(datetime.strptime(t2, fmt) - datetime.strptime(t1, fmt)).seconds for t1, t2 in zip(times, times[1:])]
             avg_interval = int(sum(diffs) / len(diffs) / 60)
-            text += f"\n{data['name']} — {data['codes_count']} кодів, {data['photos']} фото\n"
-            text += f"⏰ Почав: {times[0] if times else '-'} | Завершив: {times[-1] if times else '-'}\n"
-            text += f"🕐 Інтервал: ~{avg_interval} хв"
+        text += f"\n{data['name']} — {data['codes_count']} кодів, {data['photos']} фото\n"# ---------- ПІДМЕНЮ ----------
+        text += f"⏰ Почав: {times[0] if times else '-'} | Завершив: {times[-1] if times else '-'}\n"
+        text += f"🕐 Інтервал: ~{avg_interval} хв"
         if data.get("no_caption", 0):
             text += f" | 📭 без підпису: {data['no_caption']}"
         text += "\n"
@@ -289,6 +284,24 @@ def manual_check_foto(message):
     text = generate_photo_stats_text()
     bot.send_message(message.chat.id, text)
 
+# ---------- 🆕 ОНОВЛЕННЯ ДАНИХ ----------
+@bot.message_handler(func=lambda msg: msg.text == "📨 Оновлення даних")
+def update_data(message):
+    if not is_tm_or_admin(message.from_user.id):
+        bot.reply_to(message, "⚠️ Немає прав для оновлення даних.")
+        return
+    try:
+        users_ws.reload()
+        bot.send_message(message.chat.id, "✅ Дані оновлені, використовуйте в роботі.")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ Помилка при оновленні: {e}")
+
+# ---------- 🆕 ФОКУС ДНЯ ----------
+@bot.message_handler(func=lambda msg: msg.text == "🎯 Фокус дня (нагадування)")
+def send_focus_reminder(message):
+    # За твоїм побажанням — просто повідомлення в цей чат
+    bot.send_message(message.chat.id, "🎯 Перевір фокуси дня")
+
 # ---------- РОЗКЛАД (ранок/вечір) ----------
 def photo_group_scheduler():
     tz = pytz.timezone("Europe/Kyiv")
@@ -307,7 +320,7 @@ def photo_group_scheduler():
                 missing = [
                     u["Ім’я"]
                     for u in all_users
-    if str(u.get("Telegram_ID", "")).strip().isdigit()
+                    if str(u.get("Telegram_ID", "")).strip().isdigit()
                     and str(u["Telegram_ID"]) not in sent_users
                     and str(u.get("Роль", "")).lower() not in excluded_roles
                 ]
@@ -330,7 +343,7 @@ def back_to_main(message):
 
 # ---------- ОБРОБКА ЛІНКІВ ----------
 SKIP_BTNS = {"🗺 Територія", "🧩 Сервіси", "🎯 Фокуси", "📚 Знання",
-              "⬅️ Назад", "📨 Оновлення даних", "🎯 Фокус дня (нагадування)", "📊 Check Foto"}
+             "⬅️ Назад", "📨 Оновлення даних", "🎯 Фокус дня (нагадування)", "📊 Check Foto"}
 
 @bot.message_handler(func=lambda msg: msg.text not in SKIP_BTNS)
 def handle_links(message):
