@@ -264,7 +264,7 @@ def remark_handler(message):
     print(f"🧾 Записуємо у PhotoRemarks: {name} | {remark_text}")
 
     try:
-    remarks_ws.append_row([
+        remarks_ws.append_row([
         now,
         name,
         f"https://t.me/c/{str(PHOTO_GROUP_ID)[4:]}/{photo_msg.message_id}",
