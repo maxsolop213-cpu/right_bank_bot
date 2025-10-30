@@ -357,6 +357,53 @@ def daily_sender_loop():
                 last_sent_date = today
         time_module.sleep(30)
 
+        # ---------- INSPIRATION STORIES ----------
+def send_inspiration_stories():
+    tz = pytz.timezone("Europe/Kyiv")
+    last_morning = None
+    last_evening = None
+
+    while True:
+        now = datetime.now(tz)
+
+        try:
+            insp_ws = sheet.worksheet("Inspiration_Business")
+            data = insp_ws.get_all_records()
+        except Exception as e:
+            print("❌ Помилка читання аркуша Inspiration_Business:", e)
+            time_module.sleep(60)
+            continue
+
+        # 🔹 Morning stories (09:00)
+        if now.hour == 9 and now.minute == 0 and last_morning != now.date():
+            morning_stories = [row["Текст"] for row in data if str(row["Тип"]).lower() == "morning" and row["Текст"].strip()]
+            if morning_stories:
+                story = random.choice(morning_stories)
+                for cid in all_user_chat_ids():
+                    try:
+                        bot.send_message(cid, f"🌅 Ранкова історія:\n\n{story}")
+                    except Exception:
+                        pass
+                print("✅ Morning story sent")
+            last_morning = now.date()
+
+        # 🔹 Evening stories (19:05)
+        if now.hour == 19 and now.minute == 5 and last_evening != now.date():
+            evening_stories = [row["Текст"] for row in data if str(row["Тип"]).lower() == "evening" and row["Текст"].strip()]
+            if evening_stories:
+                story = random.choice(evening_stories)
+                for cid in all_user_chat_ids():
+                    try:
+                        bot.send_message(cid, f"🌙 Вечірня історія:\n\n{story}")
+                    except Exception:
+                        pass
+                print("✅ Evening story sent")
+            last_evening = now.date()
+
+        time_module.sleep(30)
+
+threading.Thread(target=send_inspiration_stories, daemon=True).start()
+
 # ---------- FLASK ----------
 @app.route(f"/{BOT_TOKEN}", methods=["POST"])
 def webhook():
