@@ -287,16 +287,13 @@ def manual_check_foto(message):
 # ---------- ОНОВЛЕННЯ ДАНИХ ----------
 @bot.message_handler(func=lambda msg: msg.text == "📨 Оновлення даних")
 def update_data(message):
-    if not is_tm_or_admin(message.from_user.id):
-        bot.reply_to(message, "⚠️ Немає прав для оновлення даних.")
-        return
-    try:
-        global users_ws
-        sheet = client.open_by_key(MAIN_SHEET_ID)
-        users_ws = sheet.worksheet("Users")
-        bot.send_message(message.chat.id, "✅ Дані оновлені, використовуйте в роботі.")
-    except Exception as e:
-        bot.send_message(message.chat.id, f"❌ Помилка при оновленні: {e}")
+    users = all_user_chat_ids()
+    for cid in users:
+        try:
+            bot.send_message(cid, "✅ Дані оновлені, використовуйте в роботі.")
+        except Exception:
+            pass
+    bot.reply_to(message, "✅ Дані оновлені, використовуйте в роботі.")
 
 
 # ---------- ФОКУС ДНЯ (нагадування) ----------
