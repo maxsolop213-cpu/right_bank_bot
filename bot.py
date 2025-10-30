@@ -284,14 +284,15 @@ def manual_check_foto(message):
     text = generate_photo_stats_text()
     bot.send_message(message.chat.id, text)
 
-# ---------- 🆕 ОНОВЛЕННЯ ДАНИХ ----------
 @bot.message_handler(func=lambda msg: msg.text == "📨 Оновлення даних")
 def update_data(message):
     if not is_tm_or_admin(message.from_user.id):
         bot.reply_to(message, "⚠️ Немає прав для оновлення даних.")
         return
     try:
-        users_ws.reload()
+        global users_ws
+        sheet = client.open_by_key(MAIN_SHEET_ID)
+        users_ws = sheet.worksheet("Users")
         bot.send_message(message.chat.id, "✅ Дані оновлені, використовуйте в роботі.")
     except Exception as e:
         bot.send_message(message.chat.id, f"❌ Помилка при оновленні: {e}")
