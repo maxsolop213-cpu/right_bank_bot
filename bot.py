@@ -244,40 +244,6 @@ def send_photo_stats():
     bot.send_message(PHOTO_GROUP_ID, "✅ Дякую всім за роботу сьогодні!")
     save_photo_stats_to_sheet()
 
-# ---------- /remark ----------
-@bot.message_handler(commands=["remark"])
-def remark_handler(message):
-    print("📩 Отримано команду /remark")
-    if not is_tm_or_admin(message.from_user.id):
-        print("❌ Не має прав на remark")
-        return
-    if not message.reply_to_message:
-        bot.reply_to(message, "⚠️ Відповідай на фото, до якого хочеш додати зауваження.")
-        print("⚠️ Не відповідь на фото")
-        return
-
-    photo_msg = message.reply_to_message
-    name = photo_msg.from_user.first_name or photo_msg.from_user.username or "Невідомий"
-    tz = pytz.timezone("Europe/Kyiv")
-    now = datetime.now(tz).strftime("%d.%m %H:%M")
-    remark_text = message.text.replace("/remark", "").strip() or "(Без тексту)"
-    print(f"🧾 Записуємо у PhotoRemarks: {name} | {remark_text}")
-
-    try:
-        remarks_ws.append_row([
-        now,
-        name,
-        f"https://t.me/c/{str(PHOTO_GROUP_ID)[4:]}/{photo_msg.message_id}",
-        remark_text
-    ])
-    bot.reply_to(message, "✅ Зауваження додано.")
-    print(f"✅ Зауваження успішно додано в таблицю: {name} | {remark_text}")
-    except Exception as e:
-    bot.reply_to(message, "❌ Помилка при записі зауваження.")
-    import traceback
-    print("❌ ПОМИЛКА append_row:")
-    traceback.print_exc()
-
 # ---------- /check_foto ----------
 @bot.message_handler(func=lambda msg: msg.text == "📊 Check Foto" or msg.text == "/check_foto")
 def manual_check_foto(message):
