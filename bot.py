@@ -264,17 +264,19 @@ def remark_handler(message):
     print(f"🧾 Записуємо у PhotoRemarks: {name} | {remark_text}")
 
     try:
-        remarks_ws.append_row([
-            now,
-            name,
-            f"https://t.me/c/{str(PHOTO_GROUP_ID)[4:]}/{photo_msg.message_id}",
-            remark_text
-        ])
-        bot.reply_to(message, "✅ Зауваження додано.")
-        print("✅ Зауваження успішно додано в таблицю.")
-    except Exception as e:
-        bot.reply_to(message, f"❌ Помилка при записі: {e}")
-        print("❌ ПОМИЛКА:", e)
+    remarks_ws.append_row([
+        now,
+        name,
+        f"https://t.me/c/{str(PHOTO_GROUP_ID)[4:]}/{photo_msg.message_id}",
+        remark_text
+    ])
+    bot.reply_to(message, "✅ Зауваження додано.")
+    print(f"✅ Зауваження успішно додано в таблицю: {name} | {remark_text}")
+except Exception as e:
+    bot.reply_to(message, "❌ Помилка при записі зауваження.")
+    import traceback
+    print("❌ ПОМИЛКА append_row:")
+    traceback.print_exc()
 
 # ---------- /check_foto ----------
 @bot.message_handler(func=lambda msg: msg.text == "📊 Check Foto" or msg.text == "/check_foto")
