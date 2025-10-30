@@ -46,14 +46,14 @@ MOTIVATION_DAILY = [
  "⚡️ Сильний старт = сильний результат. Продуктивного дня!",
  "📈 Маленькі кроки щодня — великі перемоги. Успіхів!",
  "🎯 Концентрація → результат. Гарного дня!",
- "� Плануй і роби. Максимальної продуктивності сьогодні!",
+ " Плануй і роби. Максимальної продуктивності сьогодні!",
  "🔥 Твій ритм — твоя перевага. Продуктивного дня!",
  "🏁 Починай чітко, завершуй впевнено. Гарного дня!",
  "🌟 Тільки вперед. Нехай день буде ефективним!",
  "✅ Діємо без відкладань. Продуктивного дня!"
 ]
 
-# ---------- ХЕЛПЕ�И ----------
+# ---------- ХЕЛПЕИ ----------
 def get_user_data(user_id):
  users = users_ws.get_all_records()
  for user in users:
@@ -83,7 +83,7 @@ def is_tm_or_admin(user_id):
  user = get_user_data(user_id)
  if not user:
  return False
- role = str(user.get("�оль", "")).lower()
+ role = str(user.get("оль", "")).lower()
  return (
  role in ["tm", "тм", "admin", "адмін", "vip тп", "vip tp"]
  or user_id in TM_IDS
@@ -104,7 +104,7 @@ def start(message):
  user_id = message.from_user.id
  user = get_user_data(user_id)
  if not user:
- bot.reply_to(message, "�️ Тебе немає в списку користувачів. Звернись до керівника.")
+ bot.reply_to(message, "️ Тебе немає в списку користувачів. Звернись до керівника.")
  return
 
  name = user.get("Ім’я", "користувач")
@@ -132,7 +132,7 @@ def territory_menu(message):
 @bot.message_handler(func=lambda msg: msg.text == "🧩 Сервіси")
 def services_menu(message):
  markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
- markup.add("� Сервіс-C", "⚙️ Сервіс-Х", "👑 Premium Club", "💰 МФ")
+ markup.add(" Сервіс-C", "⚙️ Сервіс-Х", "👑 Premium Club", "💰 МФ")
  markup.add("⬅️ Назад")
  bot.send_message(message.chat.id, "🧩 Сервіси:", reply_markup=markup)
 
@@ -140,7 +140,7 @@ def services_menu(message):
 @bot.message_handler(func=lambda msg: msg.text == "🎯 Фокуси")
 def focus_menu(message):
  markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
- markup.add("🎯 Фокуси місяця", "🌱 �озвиток територій", "🎁 Промо", "🎯 Фокус дня")
+ markup.add("🎯 Фокуси місяця", "🌱 озвиток територій", "🎁 Промо", "🎯 Фокус дня")
  markup.add("⬅️ Назад")
  bot.send_message(message.chat.id, "🎯 Фокуси:", reply_markup=markup)
 
@@ -220,7 +220,7 @@ def generate_photo_stats_text():
  for u in all_users
  if str(u.get("Telegram_ID", "")).strip().isdigit()
  and str(u["Telegram_ID"]) not in sent_users
- and str(u.get("�оль", "")).lower() not in excluded_roles
+ and str(u.get("оль", "")).lower() not in excluded_roles
  ]
  if missing:
  text += "\n❌ Не надіслали сьогодні:\n" + ", ".join(missing)
@@ -255,8 +255,8 @@ def remark_handler(message):
  print("❌ Не має прав на remark")
  return
  if not message.reply_to_message:
- bot.reply_to(message, "�️ Відповідай на фото, до якого хочеш додати зауваження.")
- print("�️ Не відповідь на фото")
+ bot.reply_to(message, "️ Відповідай на фото, до якого хочеш додати зауваження.")
+ print("️ Не відповідь на фото")
  return
 
  photo_msg = message.reply_to_message
@@ -287,7 +287,7 @@ def manual_check_foto(message):
  text = generate_photo_stats_text()
  bot.send_message(message.chat.id, text)
 
-# ---------- �ОЗКЛАД (ранок/вечір) ----------
+# ---------- ОЗКЛАД (ранок/вечір) ----------
 def photo_group_scheduler():
  tz = pytz.timezone("Europe/Kyiv")
  last_morning = None
@@ -307,7 +307,7 @@ def photo_group_scheduler():
     for u in all_users
    if str(u.get("Telegram_ID", "")).strip().isdigit()
  and str(u["Telegram_ID"]) not in sent_users
- and str(u.get("�оль", "")).lower() not in excluded_roles
+ and str(u.get("оль", "")).lower() not in excluded_roles
  ]
  if missing:
  bot.send_message(PHOTO_GROUP_ID, f"📸 Не бачу фото від: {', '.join(missing)}")
@@ -321,12 +321,12 @@ def photo_group_scheduler():
 
 threading.Thread(target=photo_group_scheduler, daemon=True).start()
 
-# ---------- ПОВЕ�НЕННЯ ДО МЕНЮ ----------
+# ---------- ПОВЕНЕННЯ ДО МЕНЮ ----------
 @bot.message_handler(func=lambda msg: msg.text == "⬅️ Назад")
 def back_to_main(message):
  start(message)
 
-# ---------- ОБ�ОБКА ЛІНКІВ ----------
+# ---------- ОБОБКА ЛІНКІВ ----------
 SKIP_BTNS = {"🗺 Територія", "🧩 Сервіси", "🎯 Фокуси", "📚 Знання",
  "⬅️ Назад", "📨 Оновлення даних", "🎯 Фокус дня (нагадування)", "📊 Check Foto"}
 
@@ -335,7 +335,7 @@ def handle_links(message):
  user_id = message.from_user.id
  user = get_user_data(user_id)
  if not user:
- bot.reply_to(message, "�️ Тебе немає в базі.")
+ bot.reply_to(message, "️ Тебе немає в базі.")
  return
  column = message.text.strip()
  url = user.get(column)
@@ -344,7 +344,7 @@ def handle_links(message):
  return
  bot.send_message(message.chat.id, f"🔗 {column}:\n{normalize_url(url)}")
 
-# ---------- �АНКОВА МОТИВАЦІЯ ----------
+# ---------- АНКОВА МОТИВАЦІЯ ----------
 def daily_sender_loop():
  tz = pytz.timezone("Europe/Kyiv")
  last_sent_date = None
@@ -382,6 +382,6 @@ if __name__ == "__main__":
  bot.set_webhook(url=f"https://{render_host}/{BOT_TOKEN}")
  print(f"✅ Вебхук встановлено: {render_host}")
  else:
- print("�️ RENDER_EXTERNAL_HOSTNAME не задано. Перевір ENV у Render.")
+ print("️ RENDER_EXTERNAL_HOSTNAME не задано. Перевір ENV у Render.")
  app.run(host="0.0.0.0", port=5000) 
     
