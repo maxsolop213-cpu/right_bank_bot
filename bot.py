@@ -316,6 +316,47 @@ def photo_group_scheduler():
 
 threading.Thread(target=photo_group_scheduler, daemon=True).start()
 
+# ---------- РОЗСИЛКА ФАКТІВ ПРО РЕКЛАМУ ----------
+def send_ad_facts():
+    tz = pytz.timezone("Europe/Kyiv")
+    last_sent = None
+    send_times = [
+        (11, 30),
+        (12, 0),
+        (12, 30),
+        (13, 0),
+        (13, 30),
+        (15, 0),
+        (15, 30),
+        (16, 0),
+        (16, 30),
+        (17, 0),
+    ]
+
+    while True:
+        now = datetime.now(tz)
+
+        # Працює лише з понеділка по п’ятницю
+        if now.weekday() <= 4:
+            for h, m in send_times:
+                # Якщо година і хвилина збігаються
+                if now.hour == h and now.minute == m:
+                    # Перевіряємо, щоб не дублювало в той самий час
+                    if last_sent != (h, m, now.date()):
+                        try:
+                            ad_ws = sheet.worksheet("AdFacts")
+                            data = ad_ws.get_all_records()
+                            facts = [row["Текст"] for row in data if row["Текст"].strip()]
+                            if facts:
+                                fact = random.choice(facts)
+                                bot.send_message(PHOTO_GROUP_ID, f"🧠 Цікавий факт про рекламу:\n\n{fact}")
+                                print(f"✅ Відправлено факт у {h:02d}:{m:02d}")
+                            last_sent = (h, m, now.date())
+                        except Exception as e:
+                            print("❌ Помилка зчитування AdFacts:", e)
+                    time_module.sleep(60)
+        time_module.sleep(20)
+
 # ---------- ПОВЕРНЕННЯ ДО МЕНЮ ----------
 @bot.message_handler(func=lambda msg: msg.text == "⬅️ Назад")
 def back_to_main(message):
