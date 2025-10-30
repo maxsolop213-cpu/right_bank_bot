@@ -61,7 +61,7 @@ def get_user_data(user_id):
     users = users_ws.get_all_records()
     for user in users:
         if str(user_id) == str(user.get("Telegram_ID", "")).strip():
-    return user
+            return user
     return None
 
 
