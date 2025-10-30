@@ -284,6 +284,7 @@ def manual_check_foto(message):
     text = generate_photo_stats_text()
     bot.send_message(message.chat.id, text)
 
+# ---------- ОНОВЛЕННЯ ДАНИХ ----------
 @bot.message_handler(func=lambda msg: msg.text == "📨 Оновлення даних")
 def update_data(message):
     if not is_tm_or_admin(message.from_user.id):
@@ -297,11 +298,20 @@ def update_data(message):
     except Exception as e:
         bot.send_message(message.chat.id, f"❌ Помилка при оновленні: {e}")
 
-# ---------- 🆕 ФОКУС ДНЯ ----------
+
+# ---------- ФОКУС ДНЯ (нагадування) ----------
 @bot.message_handler(func=lambda msg: msg.text == "🎯 Фокус дня (нагадування)")
-def send_focus_reminder(message):
-    # За твоїм побажанням — просто повідомлення в цей чат
-    bot.send_message(message.chat.id, "🎯 Перевір фокуси дня")
+def focus_day_reminder(message):
+    if not is_tm_or_admin(message.from_user.id):
+        bot.reply_to(message, "⚠️ Тільки ТМ або Адмін можуть запускати нагадування.")
+        return
+    text = "🎯 Перевір фокуси дня, колего!"
+    for cid in all_user_chat_ids():
+        try:
+            bot.send_message(cid, text)
+        except Exception:
+            pass
+    bot.send_message(message.chat.id, "✅ Нагадування про фокуси дня відправлено.")
 
 # ---------- РОЗКЛАД (ранок/вечір) ----------
 def photo_group_scheduler():
