@@ -315,25 +315,19 @@ def photo_group_scheduler():
         time_module.sleep(30)
 
 threading.Thread(target=photo_group_scheduler, daemon=True).start()
+
 # ---------- РОЗСИЛКА ФАКТІВ ПРО РЕКЛАМУ ----------
 def send_ad_facts():
     tz = pytz.timezone("Europe/Kyiv")
     last_sent = None
     send_times = [
-        (11, 30),
-        (12, 0),
-        (12, 30),
-        (13, 0),
-        (13, 30),
-        (15, 0),
-        (15, 30),
-        (16, 0),
-        (16, 30),
-        (17, 0),
-        (17, 30),
-        (17, 45),
-        (17, 50),
-        (17, 55),  # ✅ нові три часи
+        (11, 30), (12, 0), (12, 30),
+        (13, 0), (13, 30),
+        (15, 0), (15, 30),
+        (16, 0), (16, 30),
+        (17, 0), (17, 30),
+        (17, 45), (17, 50), (17, 55),
+        (18, 15), (18, 20),  # ✅ додано нові часи
     ]
 
     print("🚀 Потік розсилки фактів про рекламу запущено")
@@ -343,26 +337,26 @@ def send_ad_facts():
 
         try:
             ad_ws = sheet.worksheet("AdFacts")
-            data = ad_ws.get_all_records()
+            # expected_headers захищає від дублюючого або порожнього заголовка
+            data = ad_ws.get_all_records(expected_headers=["Текст"])
             facts = [
                 str(row.get("Текст", "")).strip()
                 for row in data
                 if str(row.get("Текст", "")).strip()
             ]
         except Exception as e:
-            print("❌ Помилка зчитування AdFacts:", repr(e))
-            time_module.sleep(30)
+            print("❌ Помилка читання AdFacts:", repr(e))
+            time_module.sleep(60)
             continue
 
-        # Діагностика у логах Render
+        # лог для моніторингу у Render
         if now.second < 2:
             print(f"[ad_facts tick] {now.strftime('%Y-%m-%d %H:%M:%S')} | facts={len(facts)}")
 
-        # Понеділок–п’ятниця
         if now.weekday() <= 4 and facts:
             for h, m in send_times:
-                # Вікно надсилання (0–19 сек)
-                if now.hour == h and now.minute == m and now.second < 20:
+                # ширше вікно для Render (до 50 сек)
+                if now.hour == h and now.minute == m and now.second < 50:
                     if last_sent != (h, m, now.date()):
                         fact = random.choice(facts)
                         try:
@@ -373,15 +367,13 @@ def send_ad_facts():
                             print(f"✅ Відправлено факт у {h:02d}:{m:02d}")
                             last_sent = (h, m, now.date())
                         except Exception as send_err:
-                            print("❌ Помилка відправки факту:", repr(send_err))
+                            print("❌ Помилка надсилання факту:", repr(send_err))
 
         time_module.sleep(10)
 
 
 # 🔹 Запуск потоку для фактів
-threading.Thread(target=send_ad_facts, daemon=True).start()
-
-         
+threading.Thread(target=send_ad_facts, daemon=True).start()    
 
 # ---------- ПОВЕРНЕННЯ ДО МЕНЮ ----------
 @bot.message_handler(func=lambda msg: msg.text == "⬅️ Назад")
