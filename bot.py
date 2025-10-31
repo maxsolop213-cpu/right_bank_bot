@@ -315,7 +315,6 @@ def photo_group_scheduler():
         time_module.sleep(30)
 
 threading.Thread(target=photo_group_scheduler, daemon=True).start()
-
 # ---------- РОЗСИЛКА ФАКТІВ ПРО РЕКЛАМУ ----------
 def send_ad_facts():
     tz = pytz.timezone("Europe/Kyiv")
@@ -331,8 +330,13 @@ def send_ad_facts():
         (16, 0),
         (16, 30),
         (17, 0),
-        (17, 30),  # ✅ додано 17:30
+        (17, 30),
+        (17, 45),
+        (17, 50),
+        (17, 55),  # ✅ нові три часи
     ]
+
+    print("🚀 Потік розсилки фактів про рекламу запущено")
 
     while True:
         now = datetime.now(tz)
@@ -350,14 +354,14 @@ def send_ad_facts():
             time_module.sleep(30)
             continue
 
-        # Якщо аркуш зчитано — покажемо скільки фактів
+        # Діагностика у логах Render
         if now.second < 2:
             print(f"[ad_facts tick] {now.strftime('%Y-%m-%d %H:%M:%S')} | facts={len(facts)}")
 
         # Понеділок–п’ятниця
         if now.weekday() <= 4 and facts:
             for h, m in send_times:
-                # Невелике вікно (0..19 сек), щоб не промахнутись по хвилині
+                # Вікно надсилання (0–19 сек)
                 if now.hour == h and now.minute == m and now.second < 20:
                     if last_sent != (h, m, now.date()):
                         fact = random.choice(facts)
@@ -377,6 +381,7 @@ def send_ad_facts():
 # 🔹 Запуск потоку для фактів
 threading.Thread(target=send_ad_facts, daemon=True).start()
 
+         
 
 # ---------- ПОВЕРНЕННЯ ДО МЕНЮ ----------
 @bot.message_handler(func=lambda msg: msg.text == "⬅️ Назад")
