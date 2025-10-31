@@ -336,26 +336,38 @@ def send_ad_facts():
     while True:
         now = datetime.now(tz)
 
-        # Працює лише з понеділка по п’ятницю
-        if now.weekday() <= 4:
+        try:
+            ad_ws = sheet.worksheet("AdFacts")
+            data = ad_ws.get_all_records()
+            facts = [str(row.get("Текст", "")).strip() for row in data if str(row.get("Текст", "")).strip()]
+        except Exception as e:
+            print("❌ Помилка зчитування AdFacts:", e)
+            time_module.sleep(30)
+            continue
+
+        # Понеділок-п’ятниця
+        if now.weekday() <= 4 and facts:
             for h, m in send_times:
-                # Якщо година і хвилина збігаються
-                if now.hour == h and now.minute == m:
-                    # Перевіряємо, щоб не дублювало в той самий час
+                # Невелике вікно 0..19 сек, щоб не промахнутись
+                if now.hour == h and now.minute == m and now.second < 20:
                     if last_sent != (h, m, now.date()):
+                        fact = random.choice(facts)
                         try:
-                            ad_ws = sheet.worksheet("AdFacts")
-                            data = ad_ws.get_all_records()
-                            facts = [row["Текст"] for row in data if row["Текст"].strip()]
-                            if facts:
-                                fact = random.choice(facts)
-                                bot.send_message(PHOTO_GROUP_ID, f"🧠 Цікавий факт про рекламу:\n\n{fact}")
-                                print(f"✅ Відправлено факт у {h:02d}:{m:02d}")
+                            bot.send_message(PHOTO_GROUP_ID, f"🧠 Цікавий факт про рекламу:\n\n{fact}")
+                            print(f"✅ Відправлено факт у {h:02d}:{m:02d}")
                             last_sent = (h, m, now.date())
-                        except Exception as e:
-                            print("❌ Помилка зчитування AdFacts:", e)
-                    time_module.sleep(60)
-        time_module.sleep(20)
+                        except Exception as send_err:
+                            print("❌ Помилка відправки факту:", send_err)
+
+        # Трохи логів, щоб бачити, що потік живе
+        if now.second < 2:
+            print(f"[ad_facts tick] {now.strftime('%Y-%m-%d %H:%M:%S')} | facts={len(facts)}")
+
+        time_module.sleep(10)
+
+
+# 🔹 Запуск потоку для фактів
+threading.Thread(target=send_ad_facts, daemon=True).start()
 
 # ---------- ПОВЕРНЕННЯ ДО МЕНЮ ----------
 @bot.message_handler(func=lambda msg: msg.text == "⬅️ Назад")
